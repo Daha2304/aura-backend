@@ -8,6 +8,7 @@ interface DeviceGroup {
   id: string;
   name: string;
   roomId?: string;
+  hasStructuredParent: boolean;
   capabilities: AuraCapability[];
   deviceTypes: AuraDeviceType[];
 }
@@ -20,6 +21,10 @@ export class DeviceBuilder {
 
     for (const object of objects) {
       if (object.type !== "state") {
+        continue;
+      }
+
+      if (!this.isDiscoverableState(object)) {
         continue;
       }
 
@@ -41,13 +46,15 @@ export class DeviceBuilder {
       group.deviceTypes.push(mapping.deviceType);
     }
 
-    return Array.from(groups.values()).map((group) => ({
-      id: group.id,
-      name: group.name,
-      type: this.selectDeviceType(group.deviceTypes),
-      roomId: group.roomId,
-      capabilities: this.sortCapabilities(group.capabilities)
-    }));
+    return Array.from(groups.values())
+      .filter((group) => this.isDiscoverableGroup(group))
+      .map((group) => ({
+        id: group.id,
+        name: group.name,
+        type: this.selectDeviceType(group.deviceTypes),
+        roomId: group.roomId,
+        capabilities: this.sortCapabilities(group.capabilities)
+      }));
   }
 
   private getOrCreateGroup(
@@ -67,6 +74,7 @@ export class DeviceBuilder {
       id: deviceId,
       name: this.getObjectName(parent ?? object),
       roomId: this.getRoomId(object),
+      hasStructuredParent: parent?.type === "device" || parent?.type === "channel",
       capabilities: [],
       deviceTypes: []
     };
@@ -132,5 +140,78 @@ export class DeviceBuilder {
     const priority = ["switch", "brightness", "position", "temperature", "humidity", "motion", "presence", "contact"];
 
     return [...capabilities].sort((first, second) => priority.indexOf(first.id) - priority.indexOf(second.id));
+  }
+
+  private isDiscoverableState(object: IoBrokerObject): boolean {
+    const id = object._id;
+    const role = object.common?.role?.toLowerCase() ?? "";
+
+    if (this.isExcludedNamespace(id)) {
+      return false;
+    }
+
+    if (role.startsWith("scriptenabled") || role === "indicator.connected" || role === "state") {
+      return false;
+    }
+
+    if (object.common?.read !== true) {
+      return false;
+    }
+
+    return true;
+  }
+
+  private isExcludedNamespace(id: string): boolean {
+    const excludedPrefixes = [
+      "admin.",
+      "alexa2.0.History.",
+      "backitup.",
+      "discovery.",
+      "history.",
+      "iobroker.",
+      "info.",
+      "javascript.0.scriptEnabled.",
+      "system.",
+      "web.",
+      "ws."
+    ];
+
+    return excludedPrefixes.some((prefix) => id.startsWith(prefix));
+  }
+
+  private isDiscoverableGroup(group: DeviceGroup): boolean {
+    const capabilityIds = new Set(group.capabilities.map((capability) => capability.id));
+
+    if (group.capabilities.length === 0) {
+      return false;
+    }
+
+    if (group.roomId) {
+      return true;
+    }
+
+    if (group.hasStructuredParent && this.hasDeviceLikeCapability(capabilityIds)) {
+      return true;
+    }
+
+    return this.hasActuatorCombination(capabilityIds);
+  }
+
+  private hasDeviceLikeCapability(capabilityIds: Set<string>): boolean {
+    return ["switch", "brightness", "position", "temperature", "humidity", "motion", "presence", "contact"].some((id) =>
+      capabilityIds.has(id)
+    );
+  }
+
+  private hasActuatorCombination(capabilityIds: Set<string>): boolean {
+    if (capabilityIds.has("brightness") && capabilityIds.has("switch")) {
+      return true;
+    }
+
+    if (capabilityIds.has("position")) {
+      return true;
+    }
+
+    return false;
   }
 }

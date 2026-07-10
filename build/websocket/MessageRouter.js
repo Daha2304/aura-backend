@@ -150,6 +150,9 @@ class MessageRouter {
     async handleSubscribe(session, message) {
         const ids = this.getIds(message);
         for (const id of ids) {
+            if (session.subscriptions.has(id)) {
+                continue;
+            }
             await this.options.subscriptionService.subscribe(id);
             session.subscriptions.add(id);
         }

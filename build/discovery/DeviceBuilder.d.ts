@@ -12,4 +12,9 @@ export declare class DeviceBuilder {
     private getRoomId;
     private selectDeviceType;
     private sortCapabilities;
+    private isDiscoverableState;
+    private isExcludedNamespace;
+    private isDiscoverableGroup;
+    private hasDeviceLikeCapability;
+    private hasActuatorCombination;
 }

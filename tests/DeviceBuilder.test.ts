@@ -50,4 +50,79 @@ describe("DeviceBuilder", () => {
     });
     expect(devices[0]?.capabilities.map((capability) => capability.id)).toEqual(["switch", "brightness"]);
   });
+
+  it("filters technical adapter progress states", () => {
+    const objects: IoBrokerObject[] = [
+      {
+        _id: "discovery.0.devicesProgress",
+        type: "state",
+        common: {
+          role: "value.humidity",
+          type: "number",
+          unit: "%",
+          read: true,
+          write: false
+        }
+      },
+      {
+        _id: "backitup.0.history.iobrokerSuccess",
+        type: "state",
+        common: {
+          role: "switch",
+          type: "boolean",
+          read: true,
+          write: true
+        }
+      },
+      {
+        _id: "javascript.0.scriptEnabled.Penthouse.Bad.Fenster",
+        type: "state",
+        common: {
+          role: "switch",
+          type: "boolean",
+          read: true,
+          write: true
+        }
+      }
+    ];
+
+    const devices = new DeviceBuilder().buildDevices(objects, {
+      "discovery.0.devicesProgress": { val: 100, ack: true, ts: 1 },
+      "backitup.0.history.iobrokerSuccess": { val: true, ack: true, ts: 1 },
+      "javascript.0.scriptEnabled.Penthouse.Bad.Fenster": { val: true, ack: true, ts: 1 }
+    });
+
+    expect(devices).toEqual([]);
+  });
+
+  it("keeps structured sensor devices without rooms", () => {
+    const objects: IoBrokerObject[] = [
+      {
+        _id: "zigbee2mqtt.0.0xa4c1387a5bf53da1",
+        type: "device",
+        common: { name: "Climate Sensor" }
+      },
+      {
+        _id: "zigbee2mqtt.0.0xa4c1387a5bf53da1.temperature",
+        type: "state",
+        common: {
+          role: "value.temperature",
+          type: "number",
+          unit: "°C",
+          read: true,
+          write: false
+        }
+      }
+    ];
+
+    const devices = new DeviceBuilder().buildDevices(objects, {
+      "zigbee2mqtt.0.0xa4c1387a5bf53da1.temperature": { val: 22.4, ack: true, ts: 1 }
+    });
+
+    expect(devices).toHaveLength(1);
+    expect(devices[0]).toMatchObject({
+      id: "zigbee2mqtt.0.0xa4c1387a5bf53da1",
+      type: "temperature"
+    });
+  });
 });
