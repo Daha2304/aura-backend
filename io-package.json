@@ -1,0 +1,38 @@
+{
+  "common": {
+    "name": "aura-backend",
+    "version": "0.1.0",
+    "title": "Aura Backend",
+    "titleLang": {
+      "en": "Aura Backend",
+      "de": "Aura Backend"
+    },
+    "desc": {
+      "en": "WebSocket backend adapter for the Aura app",
+      "de": "WebSocket-Backend-Adapter fuer die Aura-App"
+    },
+    "authors": ["Aura"],
+    "keywords": ["aura", "websocket", "smart-home"],
+    "license": "MIT",
+    "platform": "Javascript/Node.js",
+    "mode": "daemon",
+    "enabled": true,
+    "extIcon": "https://raw.githubusercontent.com/ioBroker/ioBroker.repositories/master/sources-dist/stable.png",
+    "readme": "https://github.com/aura/iobroker.aura-backend/blob/main/README.md",
+    "loglevel": "info",
+    "type": "communication",
+    "compact": true,
+    "connectionType": "local",
+    "dataSource": "push",
+    "adminUI": {
+      "config": "json"
+    }
+  },
+  "native": {
+    "port": 8099,
+    "token": "",
+    "notificationStateId": "0_userdata.0.Aura.Benachrichtigung"
+  },
+  "objects": [],
+  "instanceObjects": []
+}

@@ -1,0 +1,45 @@
+{
+  "name": "iobroker.aura-backend",
+  "version": "0.1.0",
+  "description": "Aura Backend adapter for ioBroker",
+  "author": "Aura",
+  "license": "MIT",
+  "keywords": [
+    "ioBroker",
+    "aura",
+    "smart-home",
+    "websocket"
+  ],
+  "main": "build/main.js",
+  "types": "build/main.d.ts",
+  "files": [
+    "admin",
+    "build",
+    "io-package.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "check": "npm run build && npm test && npm run lint",
+    "lint": "eslint src tests --ext .ts",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@iobroker/adapter-core": "^3.2.3",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.14",
+    "@types/ws": "^8.5.13",
+    "@typescript-eslint/eslint-plugin": "^8.36.0",
+    "@typescript-eslint/parser": "^8.36.0",
+    "eslint": "^9.30.1",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

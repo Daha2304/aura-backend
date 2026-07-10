@@ -1,0 +1,19 @@
+{
+  "type": "panel",
+  "items": {
+    "port": {
+      "type": "number",
+      "label": "WebSocket port",
+      "min": 1,
+      "max": 65535
+    },
+    "token": {
+      "type": "password",
+      "label": "Access token"
+    },
+    "notificationStateId": {
+      "type": "text",
+      "label": "Notification state ID"
+    }
+  }
+}
