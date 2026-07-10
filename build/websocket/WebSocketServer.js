@@ -55,7 +55,9 @@ class WebSocketServer {
             }
             session.send({
                 type: "state_changed",
+                stateId: id,
                 id,
+                value: state.val,
                 val: state.val,
                 ack: state.ack,
                 ts: state.ts

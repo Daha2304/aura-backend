@@ -2,6 +2,8 @@ import type { DiscoveryService } from "../discovery/DiscoveryService";
 import type { ObjectService } from "../iobroker/ObjectService";
 import type { StateService } from "../iobroker/StateService";
 import type { SubscriptionService } from "../iobroker/SubscriptionService";
+import type { AuraCapability } from "../models/AuraCapability";
+import type { AuraDevice, AuraDeviceType } from "../models/AuraDevice";
 import type { ProtocolMessage, RequestMessage, SetStateMessage, SubscriptionMessage } from "../models/ProtocolMessage";
 import type { ClientSession } from "./ClientSession";
 
@@ -55,10 +57,10 @@ export class MessageRouter {
   private async routeAuthenticated(session: ClientSession, message: ProtocolMessage): Promise<void> {
     switch (message.type) {
       case "discover":
-        session.send({ type: "discover", requestId: message.requestId, ...(await this.options.discoveryService.discover()) });
+        await this.handleDiscover(session, message);
         return;
       case "snapshot":
-        session.send({ requestId: message.requestId, ...(await this.options.discoveryService.createSnapshot()) });
+        await this.handleSnapshot(session, message);
         return;
       case "subscribe":
         await this.handleSubscribe(session, message as SubscriptionMessage);
@@ -67,6 +69,7 @@ export class MessageRouter {
         await this.handleUnsubscribe(session, message as SubscriptionMessage);
         return;
       case "set_state":
+      case "setState":
         await this.handleSetState(session, message as SetStateMessage);
         return;
       case "request":
@@ -101,15 +104,21 @@ export class MessageRouter {
         const discovery = await this.options.discoveryService.discover();
         this.options.logger?.debug(`Sending devices.list response with ${discovery.devices.length} devices`);
         session.send({
-          type: "response",
+          type: "discover_result",
           op: message.op,
           requestId: message.requestId,
           success: true,
           ok: true,
-          payload: discovery,
-          data: discovery,
+          payload: {
+            rooms: discovery.rooms,
+            devices: this.toAppsocketDevices(discovery.devices)
+          },
+          data: {
+            rooms: discovery.rooms,
+            devices: this.toAppsocketDevices(discovery.devices)
+          },
           rooms: discovery.rooms,
-          devices: discovery.devices
+          devices: this.toAppsocketDevices(discovery.devices)
         });
         return;
       }
@@ -118,15 +127,21 @@ export class MessageRouter {
         const snapshot = await this.options.discoveryService.createSnapshot();
         this.options.logger?.debug(`Sending snapshot response with ${snapshot.devices.length} devices`);
         session.send({
-          type: "response",
+          type: "snapshot",
           op: message.op,
           requestId: message.requestId,
           success: true,
           ok: true,
-          payload: snapshot,
-          data: snapshot,
+          payload: {
+            rooms: snapshot.rooms,
+            devices: this.toAppsocketDevices(snapshot.devices)
+          },
+          data: {
+            rooms: snapshot.rooms,
+            devices: this.toAppsocketDevices(snapshot.devices)
+          },
           rooms: snapshot.rooms,
-          devices: snapshot.devices
+          devices: this.toAppsocketDevices(snapshot.devices)
         });
         return;
       }
@@ -137,6 +152,28 @@ export class MessageRouter {
       default:
         this.sendError(session, "unsupported_operation", `Unsupported request operation: ${message.op}`, message.requestId);
     }
+  }
+
+  private async handleDiscover(session: ClientSession, message: ProtocolMessage): Promise<void> {
+    const discovery = await this.options.discoveryService.discover();
+    this.options.logger?.debug(`Sending discover_result with ${discovery.devices.length} devices`);
+    session.send({
+      type: "discover_result",
+      requestId: message.requestId,
+      rooms: discovery.rooms,
+      devices: this.toAppsocketDevices(discovery.devices)
+    });
+  }
+
+  private async handleSnapshot(session: ClientSession, message: ProtocolMessage): Promise<void> {
+    const snapshot = await this.options.discoveryService.createSnapshot();
+    this.options.logger?.debug(`Sending snapshot with ${snapshot.devices.length} devices`);
+    session.send({
+      type: "snapshot",
+      requestId: message.requestId,
+      rooms: snapshot.rooms,
+      devices: this.toAppsocketDevices(snapshot.devices)
+    });
   }
 
   private async handleSubscribe(session: ClientSession, message: SubscriptionMessage): Promise<void> {
@@ -164,12 +201,14 @@ export class MessageRouter {
   }
 
   private async handleSetState(session: ClientSession, message: SetStateMessage): Promise<void> {
-    if (typeof message.id !== "string" || message.id.length === 0) {
+    const stateId = this.getStateId(message);
+
+    if (stateId.length === 0) {
       this.sendError(session, "invalid_state_id", "State id is required", message.requestId);
       return;
     }
 
-    const object = await this.options.objectService.getObject(message.id);
+    const object = await this.options.objectService.getObject(stateId);
 
     if (!object) {
       this.sendError(session, "state_not_found", "State does not exist", message.requestId);
@@ -183,12 +222,18 @@ export class MessageRouter {
       return;
     }
 
-    await this.options.stateService.setState(message.id, message.value);
-    session.send({ type: "set_state", requestId: message.requestId, success: true, id: message.id });
+    await this.options.stateService.setState(stateId, message.value);
+    session.send({ type: "set_state", requestId: message.requestId, success: true, id: stateId, stateId });
   }
 
   private getIds(message: SubscriptionMessage): string[] {
-    return Array.isArray(message.ids) ? message.ids.filter((id): id is string => typeof id === "string" && id.length > 0) : [];
+    const candidates = [
+      ...(Array.isArray(message.ids) ? message.ids : []),
+      ...(Array.isArray(message.stateIds) ? message.stateIds : []),
+      ...(typeof message.topic === "string" ? [message.topic] : [])
+    ];
+
+    return candidates.filter((id): id is string => typeof id === "string" && id.length > 0);
   }
 
   private getAuthToken(message: ProtocolMessage): string {
@@ -212,8 +257,91 @@ export class MessageRouter {
       type: "set_state",
       requestId: message.requestId ?? "",
       id: typeof payload.id === "string" ? payload.id : "",
+      stateId: typeof payload.stateId === "string" ? payload.stateId : "",
       value: payload.value
     };
+  }
+
+  private getStateId(message: SetStateMessage): string {
+    if (typeof message.stateId === "string") {
+      return message.stateId;
+    }
+
+    if (typeof message.id === "string") {
+      return message.id;
+    }
+
+    return "";
+  }
+
+  private toAppsocketDevices(devices: AuraDevice[]): Record<string, unknown>[] {
+    return devices.map((device) => ({
+      id: device.id,
+      deviceId: device.id,
+      name: device.name,
+      type: this.toAppsocketDeviceType(device.type),
+      roomId: device.roomId,
+      online: true,
+      states: device.capabilities.map((capability) => this.toAppsocketState(capability))
+    }));
+  }
+
+  private toAppsocketState(capability: AuraCapability): Record<string, unknown> {
+    const role = this.toIoBrokerRole(capability);
+
+    return {
+      id: capability.stateId,
+      stateId: capability.stateId,
+      name: capability.id,
+      role,
+      value: capability.value,
+      unit: capability.unit,
+      min: capability.min,
+      max: capability.max,
+      writable: capability.writable,
+      common: {
+        name: capability.id,
+        role,
+        write: capability.writable,
+        unit: capability.unit,
+        min: capability.min,
+        max: capability.max
+      }
+    };
+  }
+
+  private toAppsocketDeviceType(type: AuraDeviceType): string {
+    const mapping: Record<AuraDeviceType, string> = {
+      switch: "outlet",
+      outlet: "outlet",
+      light: "light",
+      dimmer: "dimmer",
+      temperature: "temperature",
+      humidity: "humidity",
+      motion: "motion",
+      presence: "motion",
+      contact: "window",
+      shutter: "shutter",
+      unknown: "custom"
+    };
+
+    return mapping[type];
+  }
+
+  private toIoBrokerRole(capability: AuraCapability): string {
+    const mapping: Record<string, string> = {
+      switch: "switch",
+      brightness: "level.dimmer",
+      position: "level.blind",
+      control: "button",
+      temperature: "value.temperature",
+      humidity: "value.humidity",
+      motion: "sensor.motion",
+      presence: "sensor.presence",
+      contact: "sensor.window"
+    };
+
+    return mapping[capability.id] ?? "state";
   }
 
   private parseMessage(rawMessage: unknown): ProtocolMessage | null {

@@ -23,7 +23,16 @@ function createRouter(): MessageRouter {
             id: "test.0.light",
             name: "Light",
             type: "light",
-            capabilities: []
+            capabilities: [
+              {
+                id: "switch",
+                stateId: "test.0.light.POWER",
+                readable: true,
+                writable: true,
+                valueType: "boolean",
+                value: true
+              }
+            ]
           }
         ]
       }),
@@ -67,7 +76,7 @@ describe("MessageRouter", () => {
     });
   });
 
-  it("answers devices.list requests with discovery payload", async () => {
+  it("answers devices.list requests with appsocket discovery payload", async () => {
     const session = new TestSession();
     session.authenticated = true;
 
@@ -78,7 +87,7 @@ describe("MessageRouter", () => {
     }));
 
     expect(session.messages[0]).toMatchObject({
-      type: "response",
+      type: "discover_result",
       op: "devices.list",
       requestId: "sync_1",
       success: true,
@@ -86,22 +95,62 @@ describe("MessageRouter", () => {
       data: {
         devices: [
           {
-            id: "test.0.light"
+            id: "test.0.light",
+            states: [
+              {
+                id: "test.0.light.POWER",
+                role: "switch",
+                value: true
+              }
+            ]
           }
         ]
       },
       devices: [
         {
-          id: "test.0.light"
+          id: "test.0.light",
+          states: [
+            {
+              id: "test.0.light.POWER"
+            }
+          ]
         }
       ],
       payload: {
         devices: [
           {
-            id: "test.0.light"
+            id: "test.0.light",
+            states: [
+              {
+                id: "test.0.light.POWER"
+              }
+            ]
           }
         ]
       }
+    });
+  });
+
+  it("answers discover messages with discover_result", async () => {
+    const session = new TestSession();
+    session.authenticated = true;
+
+    await createRouter().route(session as unknown as ClientSession, JSON.stringify({
+      type: "discover"
+    }));
+
+    expect(session.messages[0]).toMatchObject({
+      type: "discover_result",
+      devices: [
+        {
+          id: "test.0.light",
+          states: [
+            {
+              stateId: "test.0.light.POWER"
+            }
+          ]
+        }
+      ]
     });
   });
 
