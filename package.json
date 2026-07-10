@@ -1,6 +1,6 @@
 {
   "name": "iobroker.aura-backend",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Aura Backend adapter for ioBroker",
   "author": "Aura",
   "license": "MIT",
