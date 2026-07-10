@@ -48,7 +48,8 @@ class AuraBackendAdapter {
       discoveryService,
       objectService,
       stateService,
-      subscriptionService
+      subscriptionService,
+      logger: this.adapter.log
     });
 
     this.webSocketServer = new WebSocketServer(config.port, router, subscriptionService);

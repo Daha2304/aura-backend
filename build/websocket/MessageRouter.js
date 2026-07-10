@@ -12,6 +12,7 @@ class MessageRouter {
             this.sendError(session, "invalid_message", "Message must be a JSON object");
             return;
         }
+        this.options.logger?.debug(`Received WebSocket message: ${message.type}${this.getOperationSuffix(message)}`);
         if (message.type === "hello" || message.type === "auth") {
             this.handleHello(session, message);
             return;
@@ -74,24 +75,34 @@ class MessageRouter {
         switch (message.op) {
             case "devices.list": {
                 const discovery = await this.options.discoveryService.discover();
+                this.options.logger?.debug(`Sending devices.list response with ${discovery.devices.length} devices`);
                 session.send({
                     type: "response",
                     op: message.op,
                     requestId: message.requestId,
                     success: true,
-                    payload: discovery
+                    ok: true,
+                    payload: discovery,
+                    data: discovery,
+                    rooms: discovery.rooms,
+                    devices: discovery.devices
                 });
                 return;
             }
             case "snapshot.get":
             case "snapshot": {
                 const snapshot = await this.options.discoveryService.createSnapshot();
+                this.options.logger?.debug(`Sending snapshot response with ${snapshot.devices.length} devices`);
                 session.send({
                     type: "response",
                     op: message.op,
                     requestId: message.requestId,
                     success: true,
-                    payload: snapshot
+                    ok: true,
+                    payload: snapshot,
+                    data: snapshot,
+                    rooms: snapshot.rooms,
+                    devices: snapshot.devices
                 });
                 return;
             }
@@ -175,12 +186,19 @@ class MessageRouter {
         }
     }
     sendError(session, code, message, requestId) {
+        this.options.logger?.warn(`WebSocket error response: ${code} - ${message}`);
         session.send({
             type: "error",
             requestId,
             code,
             message
         });
+    }
+    getOperationSuffix(message) {
+        if (message.type === "request" && typeof message.op === "string") {
+            return `/${message.op}`;
+        }
+        return "";
     }
 }
 exports.MessageRouter = MessageRouter;

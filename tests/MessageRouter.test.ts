@@ -82,6 +82,19 @@ describe("MessageRouter", () => {
       op: "devices.list",
       requestId: "sync_1",
       success: true,
+      ok: true,
+      data: {
+        devices: [
+          {
+            id: "test.0.light"
+          }
+        ]
+      },
+      devices: [
+        {
+          id: "test.0.light"
+        }
+      ],
       payload: {
         devices: [
           {

@@ -9,6 +9,10 @@ interface MessageRouterOptions {
     objectService: ObjectService;
     stateService: StateService;
     subscriptionService: SubscriptionService;
+    logger?: {
+        debug(message: string): void;
+        warn(message: string): void;
+    };
 }
 export declare class MessageRouter {
     private readonly options;
@@ -25,5 +29,6 @@ export declare class MessageRouter {
     private requestToSetStateMessage;
     private parseMessage;
     private sendError;
+    private getOperationSuffix;
 }
 export {};
