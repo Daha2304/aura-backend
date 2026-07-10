@@ -1,4 +1,4 @@
-export type ProtocolMessageType = "hello" | "hello_ack" | "ping" | "pong" | "discover" | "subscribe" | "unsubscribe" | "set_state" | "snapshot" | "state_changed" | "notification" | "error";
+export type ProtocolMessageType = "hello" | "hello_ack" | "auth" | "auth_ack" | "ping" | "pong" | "request" | "response" | "discover" | "subscribe" | "unsubscribe" | "set_state" | "snapshot" | "state_changed" | "notification" | "error";
 export interface ProtocolMessage {
     type: ProtocolMessageType;
     requestId?: string;
@@ -9,6 +9,17 @@ export interface HelloMessage extends ProtocolMessage {
     client: string;
     version: number;
     token: string;
+}
+export interface AuthMessage extends ProtocolMessage {
+    type: "auth";
+    payload?: {
+        token?: string;
+    };
+}
+export interface RequestMessage extends ProtocolMessage {
+    type: "request";
+    op: string;
+    payload?: Record<string, unknown>;
 }
 export interface SubscriptionMessage extends ProtocolMessage {
     type: "subscribe" | "unsubscribe";

@@ -2,7 +2,7 @@ import type { DiscoveryService } from "../discovery/DiscoveryService";
 import type { ObjectService } from "../iobroker/ObjectService";
 import type { StateService } from "../iobroker/StateService";
 import type { SubscriptionService } from "../iobroker/SubscriptionService";
-import type { ProtocolMessage, SetStateMessage, SubscriptionMessage } from "../models/ProtocolMessage";
+import type { ProtocolMessage, RequestMessage, SetStateMessage, SubscriptionMessage } from "../models/ProtocolMessage";
 import type { ClientSession } from "./ClientSession";
 
 interface MessageRouterOptions {
@@ -24,13 +24,13 @@ export class MessageRouter {
       return;
     }
 
-    if (message.type === "hello") {
+    if (message.type === "hello" || message.type === "auth") {
       this.handleHello(session, message);
       return;
     }
 
     if (message.type === "ping") {
-      session.send({ type: "pong" });
+      session.send({ type: "pong", ts: message.ts });
       return;
     }
 
@@ -63,22 +63,64 @@ export class MessageRouter {
       case "set_state":
         await this.handleSetState(session, message as SetStateMessage);
         return;
+      case "request":
+        await this.handleRequest(session, message as RequestMessage);
+        return;
       default:
         this.sendError(session, "unsupported_message", `Unsupported message type: ${message.type}`, message.requestId);
     }
   }
 
   private handleHello(session: ClientSession, message: ProtocolMessage): void {
-    const token = typeof message.token === "string" ? message.token : "";
+    const token = this.getAuthToken(message);
     const success = this.options.token.length > 0 && token === this.options.token;
     session.authenticated = success;
 
-    session.send({
-      type: "hello_ack",
-      success,
-      authenticated: success,
-      version: 1
-    });
+    if (message.type === "auth") {
+      session.send({
+        type: "auth_ack",
+        success,
+        authenticated: success,
+        version: 1
+      });
+      return;
+    }
+
+    session.send({ type: "hello_ack", success, authenticated: success, version: 1 });
+  }
+
+  private async handleRequest(session: ClientSession, message: RequestMessage): Promise<void> {
+    switch (message.op) {
+      case "devices.list": {
+        const discovery = await this.options.discoveryService.discover();
+        session.send({
+          type: "response",
+          op: message.op,
+          requestId: message.requestId,
+          success: true,
+          payload: discovery
+        });
+        return;
+      }
+      case "snapshot.get":
+      case "snapshot": {
+        const snapshot = await this.options.discoveryService.createSnapshot();
+        session.send({
+          type: "response",
+          op: message.op,
+          requestId: message.requestId,
+          success: true,
+          payload: snapshot
+        });
+        return;
+      }
+      case "state.set":
+      case "states.set":
+        await this.handleSetState(session, this.requestToSetStateMessage(message));
+        return;
+      default:
+        this.sendError(session, "unsupported_operation", `Unsupported request operation: ${message.op}`, message.requestId);
+    }
   }
 
   private async handleSubscribe(session: ClientSession, message: SubscriptionMessage): Promise<void> {
@@ -131,6 +173,31 @@ export class MessageRouter {
 
   private getIds(message: SubscriptionMessage): string[] {
     return Array.isArray(message.ids) ? message.ids.filter((id): id is string => typeof id === "string" && id.length > 0) : [];
+  }
+
+  private getAuthToken(message: ProtocolMessage): string {
+    if (typeof message.token === "string") {
+      return message.token;
+    }
+
+    if (message.payload && typeof message.payload === "object" && "token" in message.payload) {
+      const token = (message.payload as { token?: unknown }).token;
+
+      return typeof token === "string" ? token : "";
+    }
+
+    return "";
+  }
+
+  private requestToSetStateMessage(message: RequestMessage): SetStateMessage {
+    const payload = message.payload ?? {};
+
+    return {
+      type: "set_state",
+      requestId: message.requestId ?? "",
+      id: typeof payload.id === "string" ? payload.id : "",
+      value: payload.value
+    };
   }
 
   private parseMessage(rawMessage: unknown): ProtocolMessage | null {

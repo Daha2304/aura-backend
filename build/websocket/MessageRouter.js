@@ -12,12 +12,12 @@ class MessageRouter {
             this.sendError(session, "invalid_message", "Message must be a JSON object");
             return;
         }
-        if (message.type === "hello") {
+        if (message.type === "hello" || message.type === "auth") {
             this.handleHello(session, message);
             return;
         }
         if (message.type === "ping") {
-            session.send({ type: "pong" });
+            session.send({ type: "pong", ts: message.ts });
             return;
         }
         if (!session.authenticated) {
@@ -48,20 +48,60 @@ class MessageRouter {
             case "set_state":
                 await this.handleSetState(session, message);
                 return;
+            case "request":
+                await this.handleRequest(session, message);
+                return;
             default:
                 this.sendError(session, "unsupported_message", `Unsupported message type: ${message.type}`, message.requestId);
         }
     }
     handleHello(session, message) {
-        const token = typeof message.token === "string" ? message.token : "";
+        const token = this.getAuthToken(message);
         const success = this.options.token.length > 0 && token === this.options.token;
         session.authenticated = success;
-        session.send({
-            type: "hello_ack",
-            success,
-            authenticated: success,
-            version: 1
-        });
+        if (message.type === "auth") {
+            session.send({
+                type: "auth_ack",
+                success,
+                authenticated: success,
+                version: 1
+            });
+            return;
+        }
+        session.send({ type: "hello_ack", success, authenticated: success, version: 1 });
+    }
+    async handleRequest(session, message) {
+        switch (message.op) {
+            case "devices.list": {
+                const discovery = await this.options.discoveryService.discover();
+                session.send({
+                    type: "response",
+                    op: message.op,
+                    requestId: message.requestId,
+                    success: true,
+                    payload: discovery
+                });
+                return;
+            }
+            case "snapshot.get":
+            case "snapshot": {
+                const snapshot = await this.options.discoveryService.createSnapshot();
+                session.send({
+                    type: "response",
+                    op: message.op,
+                    requestId: message.requestId,
+                    success: true,
+                    payload: snapshot
+                });
+                return;
+            }
+            case "state.set":
+            case "states.set":
+                await this.handleSetState(session, this.requestToSetStateMessage(message));
+                return;
+            default:
+                this.sendError(session, "unsupported_operation", `Unsupported request operation: ${message.op}`, message.requestId);
+        }
     }
     async handleSubscribe(session, message) {
         const ids = this.getIds(message);
@@ -101,6 +141,25 @@ class MessageRouter {
     }
     getIds(message) {
         return Array.isArray(message.ids) ? message.ids.filter((id) => typeof id === "string" && id.length > 0) : [];
+    }
+    getAuthToken(message) {
+        if (typeof message.token === "string") {
+            return message.token;
+        }
+        if (message.payload && typeof message.payload === "object" && "token" in message.payload) {
+            const token = message.payload.token;
+            return typeof token === "string" ? token : "";
+        }
+        return "";
+    }
+    requestToSetStateMessage(message) {
+        const payload = message.payload ?? {};
+        return {
+            type: "set_state",
+            requestId: message.requestId ?? "",
+            id: typeof payload.id === "string" ? payload.id : "",
+            value: payload.value
+        };
     }
     parseMessage(rawMessage) {
         try {

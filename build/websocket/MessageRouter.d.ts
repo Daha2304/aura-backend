@@ -16,10 +16,13 @@ export declare class MessageRouter {
     route(session: ClientSession, rawMessage: unknown): Promise<void>;
     private routeAuthenticated;
     private handleHello;
+    private handleRequest;
     private handleSubscribe;
     private handleUnsubscribe;
     private handleSetState;
     private getIds;
+    private getAuthToken;
+    private requestToSetStateMessage;
     private parseMessage;
     private sendError;
 }
