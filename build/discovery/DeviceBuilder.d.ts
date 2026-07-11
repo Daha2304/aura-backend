@@ -9,6 +9,11 @@ export declare class DeviceBuilder {
     private getOrCreateGroup;
     private getDeviceId;
     private getObjectName;
+    private readName;
+    private readNativeString;
+    private readNestedNativeString;
+    private isTechnicalName;
+    private humanizeId;
     private getRoomId;
     private selectDeviceType;
     private sortCapabilities;
@@ -17,4 +22,6 @@ export declare class DeviceBuilder {
     private isDiscoverableGroup;
     private hasDeviceLikeCapability;
     private hasActuatorCombination;
+    private isAllowedGenericState;
+    private isTrustedDeviceNamespace;
 }

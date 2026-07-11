@@ -6,14 +6,26 @@ class RoleMapper {
         const role = object.common?.role?.toLowerCase() ?? "";
         const type = object.common?.type;
         const unit = object.common?.unit?.toLowerCase() ?? "";
-        if (this.matches(role, ["switch.light", "light"]) && type === "boolean") {
+        const id = object._id.toLowerCase();
+        const adapter = id.split(".")[0] ?? "";
+        const suffix = id.split(".").at(-1) ?? "";
+        if (this.matches(role, ["switch.light", "light"]) && this.isSwitchLikeValue(type, suffix)) {
             return { capabilityId: "switch", deviceType: "light" };
         }
-        if (this.matches(role, ["switch.power", "switch"]) && type === "boolean") {
-            return { capabilityId: "switch", deviceType: "switch" };
+        if (this.matches(role, ["switch.power", "switch"]) && this.isSwitchLikeValue(type, suffix)) {
+            return { capabilityId: "switch", deviceType: this.getSwitchDeviceType(adapter, id) };
         }
-        if (this.matches(role, ["level.dimmer", "level.brightness", "brightness"])) {
-            return { capabilityId: "brightness", deviceType: "dimmer" };
+        if (this.isKnownSwitchState(role, type, suffix, adapter, id)) {
+            return { capabilityId: "switch", deviceType: this.getSwitchDeviceType(adapter, id) };
+        }
+        if (this.matches(role, ["level.dimmer", "level.brightness", "brightness"]) || this.isKnownBrightnessState(suffix)) {
+            return { capabilityId: "brightness", deviceType: this.getLightDeviceType(adapter) };
+        }
+        if (this.matches(role, ["level.volume", "volume"])) {
+            return { capabilityId: "volume", deviceType: this.getMediaDeviceType(adapter) };
+        }
+        if (this.matches(role, ["media", "button.play", "button.pause", "button.stop", "button.next", "button.prev"])) {
+            return { capabilityId: "media", deviceType: this.getMediaDeviceType(adapter) };
         }
         if (this.matches(role, ["value.temperature", "temperature"]) || unit === "c" || unit === "degc" || unit === "°c") {
             return { capabilityId: "temperature", deviceType: "temperature" };
@@ -29,6 +41,12 @@ class RoleMapper {
         }
         if (this.matches(role, ["sensor.window", "sensor.door", "state.window", "state.door", "contact"])) {
             return { capabilityId: "contact", deviceType: "contact" };
+        }
+        if (this.matches(role, ["value.battery", "battery"]) || suffix === "battery") {
+            return { capabilityId: "battery", deviceType: "unknown" };
+        }
+        if (this.matches(role, ["value.rssi", "value.signal", "signal"]) || ["linkquality", "rssi", "signal"].includes(suffix)) {
+            return { capabilityId: "signal", deviceType: "unknown" };
         }
         if (this.matches(role, ["level.blind", "level.curtain", "level.shutter", "blind", "shutter"])) {
             return { capabilityId: "position", deviceType: "shutter" };
@@ -46,6 +64,7 @@ class RoleMapper {
         const capability = {
             id: mapping.capabilityId,
             stateId: object._id,
+            name: this.getCapabilityName(object, mapping.capabilityId),
             readable: object.common?.read === true,
             writable: object.common?.write === true,
             valueType: this.getValueType(object),
@@ -71,6 +90,98 @@ class RoleMapper {
     }
     matches(role, candidates) {
         return candidates.some((candidate) => role === candidate || role.includes(candidate));
+    }
+    isSwitchLikeValue(type, suffix) {
+        return type === "boolean" || suffix === "state" || suffix === "power";
+    }
+    isKnownSwitchState(role, type, suffix, adapter, id) {
+        if (role !== "state" && role !== "indicator" && role !== "") {
+            return false;
+        }
+        if (type === "boolean" && ["state", "on", "power", "powerstatusactive", "switch", "1"].includes(suffix)) {
+            return true;
+        }
+        if (type === "string" && ["state", "power", "powerzone"].includes(suffix)) {
+            return ["zigbee2mqtt", "zidoo", "denon", "sony-bravia", "mqtt"].includes(adapter);
+        }
+        return adapter === "tuya" && type === "boolean" && /^\d+$/.test(suffix) && id.split(".").length === 4;
+    }
+    isKnownBrightnessState(suffix) {
+        return ["brightness", "bri", "dimmer", "level"].includes(suffix);
+    }
+    getSwitchDeviceType(adapter, id) {
+        if (adapter === "wled" || adapter === "wifilight" || adapter === "zigbee2mqtt") {
+            return "light";
+        }
+        if (adapter === "denon") {
+            return "avr";
+        }
+        if (adapter === "sony-bravia") {
+            return "tv";
+        }
+        if (adapter === "zidoo") {
+            return "mediaPlayer";
+        }
+        if (adapter === "shelly" && id.includes(".relay")) {
+            return "outlet";
+        }
+        if (adapter === "tuya") {
+            return "outlet";
+        }
+        return "switch";
+    }
+    getLightDeviceType(adapter) {
+        return ["wled", "wifilight", "zigbee2mqtt"].includes(adapter) ? "light" : "dimmer";
+    }
+    getMediaDeviceType(adapter) {
+        if (adapter === "denon") {
+            return "avr";
+        }
+        if (adapter === "sony-bravia") {
+            return "tv";
+        }
+        if (adapter === "zidoo") {
+            return "mediaPlayer";
+        }
+        return "mediaPlayer";
+    }
+    getCapabilityName(object, capabilityId) {
+        const explicit = this.readLocalizedName(object.common?.name);
+        if (explicit && !this.isGenericName(explicit)) {
+            return explicit;
+        }
+        const suffix = object._id.split(".").at(-1)?.toLowerCase() ?? capabilityId;
+        const labels = {
+            switch: "Schalter",
+            brightness: "Helligkeit",
+            volume: "Lautstärke",
+            media: "Medien",
+            position: "Position",
+            temperature: "Temperatur",
+            humidity: "Luftfeuchtigkeit",
+            motion: "Bewegung",
+            presence: "Anwesenheit",
+            contact: "Kontakt",
+            battery: "Batterie",
+            signal: "Signal"
+        };
+        if (suffix === "ct" || suffix === "colortemp") {
+            return "Farbtemperatur";
+        }
+        return labels[capabilityId] ?? suffix;
+    }
+    readLocalizedName(name) {
+        if (typeof name === "string" && name.trim().length > 0) {
+            return name.trim();
+        }
+        if (name && typeof name === "object") {
+            const values = name;
+            return values.de ?? values.en ?? Object.values(values).find((value) => value.trim().length > 0);
+        }
+        return undefined;
+    }
+    isGenericName(name) {
+        return ["state", "on", "on / off", "power", "switch", "brightness", "dimmer"].includes(name.trim().toLowerCase());
     }
 }
 exports.RoleMapper = RoleMapper;

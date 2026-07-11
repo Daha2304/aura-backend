@@ -10,4 +10,13 @@ export declare class RoleMapper {
     createCapability(object: IoBrokerObject, value?: unknown): AuraCapability | null;
     private getValueType;
     private matches;
+    private isSwitchLikeValue;
+    private isKnownSwitchState;
+    private isKnownBrightnessState;
+    private getSwitchDeviceType;
+    private getLightDeviceType;
+    private getMediaDeviceType;
+    private getCapabilityName;
+    private readLocalizedName;
+    private isGenericName;
 }

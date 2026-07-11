@@ -1,6 +1,6 @@
 import type { AuraCapability } from "../models/AuraCapability";
 import type { AuraDevice, AuraDeviceType } from "../models/AuraDevice";
-import type { IoBrokerObject } from "../iobroker/ObjectService";
+import type { IoBrokerCommon, IoBrokerObject } from "../iobroker/ObjectService";
 import type { IoBrokerState } from "../iobroker/StateService";
 import { RoleMapper } from "./RoleMapper";
 
@@ -100,17 +100,85 @@ export class DeviceBuilder {
   }
 
   private getObjectName(object: IoBrokerObject): string {
-    const name = object.common?.name;
+    const nameCandidates = [
+      this.readName(object.common?.name),
+      this.readNativeString(object, "friendly_name"),
+      this.readNativeString(object, "friendlyName"),
+      this.readNativeString(object, "displayName"),
+      this.readNativeString(object, "name"),
+      this.readNestedNativeString(object, "info", "name"),
+      this.readNestedNativeString(object, "device", "name")
+    ];
 
+    for (const candidate of nameCandidates) {
+      if (candidate && !this.isTechnicalName(candidate, object._id)) {
+        return candidate;
+      }
+    }
+
+    return this.humanizeId(object._id);
+  }
+
+  private readName(name: IoBrokerCommon["name"]): string | undefined {
     if (typeof name === "string" && name.trim().length > 0) {
-      return name;
+      return name.trim();
     }
 
     if (name && typeof name === "object") {
-      return name.en ?? name.de ?? Object.values(name)[0] ?? object._id;
+      const values = name as Record<string, string>;
+      return values.de ?? values.en ?? Object.values(values).find((value) => value.trim().length > 0);
     }
 
-    return object._id.split(".").at(-1) ?? object._id;
+    return undefined;
+  }
+
+  private readNativeString(object: IoBrokerObject, key: string): string | undefined {
+    const value = object.native?.[key];
+
+    return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+  }
+
+  private readNestedNativeString(object: IoBrokerObject, parentKey: string, key: string): string | undefined {
+    const parent = object.native?.[parentKey];
+
+    if (!parent || typeof parent !== "object") {
+      return undefined;
+    }
+
+    const value = (parent as Record<string, unknown>)[key];
+
+    return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+  }
+
+  private isTechnicalName(name: string, id: string): boolean {
+    const normalizedName = name.trim().toLowerCase();
+    const suffix = id.split(".").at(-1)?.toLowerCase() ?? "";
+
+    if (normalizedName === suffix || normalizedName === id.toLowerCase()) {
+      return true;
+    }
+
+    return /^0x[0-9a-f]+$/i.test(name.trim()) || /^group_\d+$/i.test(name.trim());
+  }
+
+  private humanizeId(id: string): string {
+    const parts = id.split(".");
+    const adapter = parts[0] ?? "";
+    const primary = parts[2] ?? parts.at(-1) ?? id;
+
+    if (adapter === "zigbee2mqtt") {
+      if (primary.startsWith("group_")) {
+        return `Zigbee Gruppe ${primary.slice(6)}`;
+      }
+
+      return `Zigbee ${primary}`;
+    }
+
+    if (adapter === "wled") {
+      return `WLED ${primary}`;
+    }
+
+    return primary.replace(/[_-]+/g, " ");
   }
 
   private getRoomId(object: IoBrokerObject): string | undefined {
@@ -123,6 +191,10 @@ export class DeviceBuilder {
     const priority: AuraDeviceType[] = [
       "light",
       "dimmer",
+      "tv",
+      "avr",
+      "mediaPlayer",
+      "speaker",
       "shutter",
       "outlet",
       "switch",
@@ -151,6 +223,12 @@ export class DeviceBuilder {
     }
 
     if (role.startsWith("scriptenabled") || role === "indicator.connected" || role === "state") {
+      if (!this.isAllowedGenericState(id)) {
+        return false;
+      }
+    }
+
+    if (role.startsWith("scriptenabled") || role === "indicator.connected") {
       return false;
     }
 
@@ -194,11 +272,15 @@ export class DeviceBuilder {
       return true;
     }
 
+    if (this.isTrustedDeviceNamespace(group.id) && this.hasDeviceLikeCapability(capabilityIds)) {
+      return true;
+    }
+
     return this.hasActuatorCombination(capabilityIds);
   }
 
   private hasDeviceLikeCapability(capabilityIds: Set<string>): boolean {
-    return ["switch", "brightness", "position", "temperature", "humidity", "motion", "presence", "contact"].some((id) =>
+    return ["switch", "brightness", "position", "temperature", "humidity", "motion", "presence", "contact", "volume", "media"].some((id) =>
       capabilityIds.has(id)
     );
   }
@@ -213,5 +295,27 @@ export class DeviceBuilder {
     }
 
     return false;
+  }
+
+  private isAllowedGenericState(id: string): boolean {
+    const normalized = id.toLowerCase();
+    const adapter = normalized.split(".")[0] ?? "";
+    const suffix = normalized.split(".").at(-1) ?? "";
+
+    if (["zigbee2mqtt", "wled", "wifilight", "tuya", "sonoff", "shelly", "denon", "sony-bravia", "zidoo", "mqtt"].includes(adapter)) {
+      if (adapter === "tuya" && /^\d+$/.test(suffix)) {
+        return true;
+      }
+
+      return ["state", "on", "power", "powerzone", "powerstatusactive"].includes(suffix);
+    }
+
+    return false;
+  }
+
+  private isTrustedDeviceNamespace(id: string): boolean {
+    const adapter = id.toLowerCase().split(".")[0] ?? "";
+
+    return ["zigbee2mqtt", "wled", "wifilight", "tuya", "sonoff", "shelly", "denon", "sony-bravia", "zidoo", "mqtt"].includes(adapter);
   }
 }

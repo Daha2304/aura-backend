@@ -240,7 +240,7 @@ class MessageRouter {
         return {
             id: capability.stateId,
             stateId: capability.stateId,
-            name: capability.id,
+            name: capability.name ?? capability.id,
             role,
             value: capability.value,
             unit: capability.unit,
@@ -248,7 +248,7 @@ class MessageRouter {
             max: capability.max,
             writable: capability.writable,
             common: {
-                name: capability.id,
+                name: capability.name ?? capability.id,
                 role,
                 write: capability.writable,
                 unit: capability.unit,
@@ -263,6 +263,10 @@ class MessageRouter {
             outlet: "outlet",
             light: "light",
             dimmer: "dimmer",
+            tv: "tv",
+            avr: "avr",
+            speaker: "speaker",
+            mediaPlayer: "mediaPlayer",
             temperature: "temperature",
             humidity: "humidity",
             motion: "motion",
@@ -283,7 +287,11 @@ class MessageRouter {
             humidity: "value.humidity",
             motion: "sensor.motion",
             presence: "sensor.presence",
-            contact: "sensor.window"
+            contact: "sensor.window",
+            volume: "level.volume",
+            media: "media",
+            battery: "value.battery",
+            signal: "value.signal"
         };
         return mapping[capability.id] ?? "state";
     }
