@@ -31,6 +31,7 @@ export declare class MessageRouter {
     private requestToSetStateMessage;
     private getStateId;
     private toAppsocketDevices;
+    private toAppsocketCapability;
     private toAppsocketState;
     private toAppsocketDeviceType;
     private toIoBrokerRole;

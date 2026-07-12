@@ -13,6 +13,12 @@ class DeviceBuilder {
             if (object.type !== "state") {
                 continue;
             }
+            if (!this.isReadableState(object)) {
+                continue;
+            }
+            const deviceId = this.getDeviceId(object._id, objects);
+            const group = this.getOrCreateGroup(groups, deviceId, object, objects);
+            group.states.push(this.createAuraState(object, states[object._id]?.val));
             if (!this.isDiscoverableState(object)) {
                 continue;
             }
@@ -20,8 +26,6 @@ class DeviceBuilder {
             if (!mapping) {
                 continue;
             }
-            const deviceId = this.getDeviceId(object._id, objects);
-            const group = this.getOrCreateGroup(groups, deviceId, object, objects);
             const capability = this.roleMapper.createCapability(object, states[object._id]?.val);
             if (!capability) {
                 continue;
@@ -36,7 +40,8 @@ class DeviceBuilder {
             name: group.name,
             type: this.selectDeviceType(group.deviceTypes),
             roomId: group.roomId,
-            capabilities: this.sortCapabilities(group.capabilities)
+            capabilities: this.sortCapabilities(group.capabilities),
+            states: this.sortStates(group.states)
         }));
     }
     getOrCreateGroup(groups, deviceId, object, objects) {
@@ -47,10 +52,11 @@ class DeviceBuilder {
         const parent = objects.find((candidate) => candidate._id === deviceId);
         const group = {
             id: deviceId,
-            name: this.getObjectName(parent ?? object),
+            name: this.getDeviceName(deviceId, parent ?? object),
             roomId: this.getRoomId(object),
             hasStructuredParent: parent?.type === "device" || parent?.type === "channel",
             capabilities: [],
+            states: [],
             deviceTypes: []
         };
         groups.set(deviceId, group);
@@ -58,6 +64,10 @@ class DeviceBuilder {
     }
     getDeviceId(stateId, objects) {
         const parts = stateId.split(".");
+        const adapterRoot = this.getAdapterRootDeviceId(stateId, objects);
+        if (adapterRoot) {
+            return adapterRoot;
+        }
         for (let length = parts.length - 1; length > 1; length -= 1) {
             const candidateId = parts.slice(0, length).join(".");
             const candidate = objects.find((object) => object._id === candidateId);
@@ -66,6 +76,47 @@ class DeviceBuilder {
             }
         }
         return parts.slice(0, -1).join(".");
+    }
+    getAdapterRootDeviceId(stateId, objects) {
+        const parts = stateId.split(".");
+        const adapter = parts[0]?.toLowerCase() ?? "";
+        if (adapter === "shelly" && parts.length >= 3) {
+            return parts.slice(0, 3).join(".");
+        }
+        if (adapter === "wled" && parts.length >= 3) {
+            return parts.slice(0, 3).join(".");
+        }
+        if (adapter === "denon") {
+            return "denon.0";
+        }
+        if (adapter === "sony-bravia") {
+            return "sony-bravia.0";
+        }
+        if (adapter === "zidoo") {
+            return "zidoo.0";
+        }
+        if (adapter === "mqtt") {
+            return this.getMqttDeviceId(stateId);
+        }
+        if (adapter === "tuya" && parts.length >= 3) {
+            return parts.slice(0, 3).join(".");
+        }
+        const directDeviceId = parts.slice(0, 3).join(".");
+        const direct = objects.find((object) => object._id === directDeviceId);
+        return direct?.type === "device" ? direct._id : undefined;
+    }
+    getMqttDeviceId(stateId) {
+        const parts = stateId.split(".");
+        if (parts[2] === "info" || parts[2] === "zigbee2mqtt" || parts[2] === "shellies") {
+            return undefined;
+        }
+        if (parts[2] === "ld2410c" || parts[2] === "ld2450") {
+            return parts.slice(0, 4).join(".");
+        }
+        if (parts[2] === "HyperHDR") {
+            return "mqtt.0.HyperHDR";
+        }
+        return undefined;
     }
     getObjectName(object) {
         const nameCandidates = [
@@ -127,7 +178,28 @@ class DeviceBuilder {
         if (adapter === "wled") {
             return `WLED ${primary}`;
         }
+        if (id === "denon.0") {
+            return "Marantz SR7010";
+        }
+        if (id === "sony-bravia.0") {
+            return "Sony Bravia";
+        }
+        if (id === "zidoo.0") {
+            return "Zidoo";
+        }
         return primary.replace(/[_-]+/g, " ");
+    }
+    getDeviceName(deviceId, object) {
+        if (deviceId === "denon.0") {
+            return "Marantz SR7010";
+        }
+        if (deviceId === "sony-bravia.0") {
+            return "Sony Bravia";
+        }
+        if (deviceId === "zidoo.0") {
+            return "Zidoo";
+        }
+        return this.getObjectName(object);
     }
     getRoomId(object) {
         const enumIds = Object.keys(object.enums ?? {});
@@ -153,8 +225,32 @@ class DeviceBuilder {
         return priority.find((type) => types.includes(type)) ?? types[0] ?? "unknown";
     }
     sortCapabilities(capabilities) {
-        const priority = ["switch", "brightness", "position", "temperature", "humidity", "motion", "presence", "contact"];
+        const priority = ["switch", "brightness", "volume", "media", "position", "temperature", "humidity", "motion", "presence", "contact"];
         return [...capabilities].sort((first, second) => priority.indexOf(first.id) - priority.indexOf(second.id));
+    }
+    sortStates(states) {
+        return [...states].sort((first, second) => first.id.localeCompare(second.id));
+    }
+    createAuraState(object, value) {
+        const state = {
+            id: object._id,
+            name: this.getObjectName(object),
+            role: object.common?.role,
+            type: object.common?.type,
+            readable: object.common?.read === true,
+            writable: object.common?.write === true,
+            value
+        };
+        if (object.common?.unit) {
+            state.unit = object.common.unit;
+        }
+        if (typeof object.common?.min === "number") {
+            state.min = object.common.min;
+        }
+        if (typeof object.common?.max === "number") {
+            state.max = object.common.max;
+        }
+        return state;
     }
     isDiscoverableState(object) {
         const id = object._id;
@@ -170,14 +266,24 @@ class DeviceBuilder {
         if (role.startsWith("scriptenabled") || role === "indicator.connected") {
             return false;
         }
-        if (object.common?.read !== true) {
+        if (!this.isReadableState(object)) {
             return false;
         }
         return true;
     }
+    isReadableState(object) {
+        if (this.isExcludedNamespace(object._id)) {
+            return false;
+        }
+        if (this.getDeviceId(object._id, []) === undefined) {
+            return false;
+        }
+        return object.common?.read === true;
+    }
     isExcludedNamespace(id) {
         const excludedPrefixes = [
             "admin.",
+            "alexa2.",
             "alexa2.0.History.",
             "backitup.",
             "discovery.",

@@ -1,4 +1,5 @@
 import type { AuraCapability } from "./AuraCapability";
+import type { AuraState } from "./AuraState";
 
 export type AuraDeviceType =
   | "switch"
@@ -28,6 +29,7 @@ export interface AuraDevice {
   type: AuraDeviceType;
   roomId?: string;
   capabilities: AuraCapability[];
+  states?: AuraState[];
 }
 
 export interface AuraSnapshot {

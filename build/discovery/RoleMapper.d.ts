@@ -13,6 +13,7 @@ export declare class RoleMapper {
     private isSwitchLikeValue;
     private isKnownSwitchState;
     private isKnownBrightnessState;
+    private isIlluminanceState;
     private getSwitchDeviceType;
     private getLightDeviceType;
     private getMediaDeviceType;

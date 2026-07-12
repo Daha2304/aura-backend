@@ -18,7 +18,7 @@ class RoleMapper {
         if (this.isKnownSwitchState(role, type, suffix, adapter, id)) {
             return { capabilityId: "switch", deviceType: this.getSwitchDeviceType(adapter, id) };
         }
-        if (this.matches(role, ["level.dimmer", "level.brightness", "brightness"]) || this.isKnownBrightnessState(suffix)) {
+        if (!this.isIlluminanceState(id, role) && (this.matches(role, ["level.dimmer", "level.brightness", "brightness"]) || this.isKnownBrightnessState(suffix))) {
             return { capabilityId: "brightness", deviceType: this.getLightDeviceType(adapter) };
         }
         if (this.matches(role, ["level.volume", "volume"])) {
@@ -41,12 +41,6 @@ class RoleMapper {
         }
         if (this.matches(role, ["sensor.window", "sensor.door", "state.window", "state.door", "contact"])) {
             return { capabilityId: "contact", deviceType: "contact" };
-        }
-        if (this.matches(role, ["value.battery", "battery"]) || suffix === "battery") {
-            return { capabilityId: "battery", deviceType: "unknown" };
-        }
-        if (this.matches(role, ["value.rssi", "value.signal", "signal"]) || ["linkquality", "rssi", "signal"].includes(suffix)) {
-            return { capabilityId: "signal", deviceType: "unknown" };
         }
         if (this.matches(role, ["level.blind", "level.curtain", "level.shutter", "blind", "shutter"])) {
             return { capabilityId: "position", deviceType: "shutter" };
@@ -108,6 +102,9 @@ class RoleMapper {
     }
     isKnownBrightnessState(suffix) {
         return ["brightness", "bri", "dimmer", "level"].includes(suffix);
+    }
+    isIlluminanceState(id, role) {
+        return id.includes("illuminance") || role.includes("illuminance");
     }
     getSwitchDeviceType(adapter, id) {
         if (adapter === "wled" || adapter === "wifilight" || adapter === "zigbee2mqtt") {

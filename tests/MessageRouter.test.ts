@@ -32,6 +32,17 @@ function createRouter(): MessageRouter {
                 valueType: "boolean",
                 value: true
               }
+            ],
+            states: [
+              {
+                id: "test.0.light.POWER",
+                name: "Power",
+                role: "switch",
+                type: "boolean",
+                readable: true,
+                writable: true,
+                value: true
+              }
             ]
           }
         ]
@@ -96,6 +107,13 @@ describe("MessageRouter", () => {
         devices: [
           {
             id: "test.0.light",
+            capabilities: [
+              {
+                id: "test.0.light.POWER",
+                role: "switch",
+                value: true
+              }
+            ],
             states: [
               {
                 id: "test.0.light.POWER",
@@ -109,6 +127,11 @@ describe("MessageRouter", () => {
       devices: [
         {
           id: "test.0.light",
+          capabilities: [
+            {
+              id: "test.0.light.POWER"
+            }
+          ],
           states: [
             {
               id: "test.0.light.POWER"
@@ -119,10 +142,15 @@ describe("MessageRouter", () => {
       payload: {
         devices: [
           {
-            id: "test.0.light",
-            states: [
-              {
-                id: "test.0.light.POWER"
+          id: "test.0.light",
+          capabilities: [
+            {
+              id: "test.0.light.POWER"
+            }
+          ],
+          states: [
+            {
+              id: "test.0.light.POWER"
               }
             ]
           }
@@ -144,6 +172,11 @@ describe("MessageRouter", () => {
       devices: [
         {
           id: "test.0.light",
+          capabilities: [
+            {
+              stateId: "test.0.light.POWER"
+            }
+          ],
           states: [
             {
               stateId: "test.0.light.POWER"

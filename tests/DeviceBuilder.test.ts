@@ -213,7 +213,7 @@ describe("DeviceBuilder", () => {
     });
 
     expect(devices.map((device) => device.id).sort()).toEqual([
-      "shelly.0.SHSW-1#8CAAB54BC3D3#1.Relay0",
+      "shelly.0.SHSW-1#8CAAB54BC3D3#1",
       "sonoff.0.Flur-Pflanze",
       "tuya.0.bf09ed5c3cfb398364fzzm"
     ]);
@@ -260,8 +260,8 @@ describe("DeviceBuilder", () => {
 
     expect(devices).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: "denon.0.zoneMain", name: "Marantz Wohnzimmer", type: "avr" }),
-        expect.objectContaining({ id: "sony-bravia.0.info", name: "Sony Bravia", type: "tv" })
+        expect.objectContaining({ id: "denon.0", name: "Marantz SR7010", type: "avr" }),
+        expect.objectContaining({ id: "sony-bravia.0", name: "Sony Bravia", type: "tv" })
       ])
     );
   });

@@ -232,10 +232,11 @@ class MessageRouter {
             type: this.toAppsocketDeviceType(device.type),
             roomId: device.roomId,
             online: true,
-            states: device.capabilities.map((capability) => this.toAppsocketState(capability))
+            capabilities: device.capabilities.map((capability) => this.toAppsocketCapability(capability)),
+            states: (device.states ?? []).map((state) => this.toAppsocketState(state))
         }));
     }
-    toAppsocketState(capability) {
+    toAppsocketCapability(capability) {
         const role = this.toIoBrokerRole(capability);
         return {
             id: capability.stateId,
@@ -254,6 +255,29 @@ class MessageRouter {
                 unit: capability.unit,
                 min: capability.min,
                 max: capability.max
+            }
+        };
+    }
+    toAppsocketState(state) {
+        return {
+            id: state.id,
+            stateId: state.id,
+            name: state.name,
+            role: state.role,
+            value: state.value,
+            unit: state.unit,
+            min: state.min,
+            max: state.max,
+            writable: state.writable,
+            common: {
+                name: state.name,
+                role: state.role,
+                type: state.type,
+                read: state.readable,
+                write: state.writable,
+                unit: state.unit,
+                min: state.min,
+                max: state.max
             }
         };
     }

@@ -28,7 +28,7 @@ export class RoleMapper {
       return { capabilityId: "switch", deviceType: this.getSwitchDeviceType(adapter, id) };
     }
 
-    if (this.matches(role, ["level.dimmer", "level.brightness", "brightness"]) || this.isKnownBrightnessState(suffix)) {
+    if (!this.isIlluminanceState(id, role) && (this.matches(role, ["level.dimmer", "level.brightness", "brightness"]) || this.isKnownBrightnessState(suffix))) {
       return { capabilityId: "brightness", deviceType: this.getLightDeviceType(adapter) };
     }
 
@@ -58,14 +58,6 @@ export class RoleMapper {
 
     if (this.matches(role, ["sensor.window", "sensor.door", "state.window", "state.door", "contact"])) {
       return { capabilityId: "contact", deviceType: "contact" };
-    }
-
-    if (this.matches(role, ["value.battery", "battery"]) || suffix === "battery") {
-      return { capabilityId: "battery", deviceType: "unknown" };
-    }
-
-    if (this.matches(role, ["value.rssi", "value.signal", "signal"]) || ["linkquality", "rssi", "signal"].includes(suffix)) {
-      return { capabilityId: "signal", deviceType: "unknown" };
     }
 
     if (this.matches(role, ["level.blind", "level.curtain", "level.shutter", "blind", "shutter"])) {
@@ -153,6 +145,10 @@ export class RoleMapper {
 
   private isKnownBrightnessState(suffix: string): boolean {
     return ["brightness", "bri", "dimmer", "level"].includes(suffix);
+  }
+
+  private isIlluminanceState(id: string, role: string): boolean {
+    return id.includes("illuminance") || role.includes("illuminance");
   }
 
   private getSwitchDeviceType(adapter: string, id: string): AuraDeviceType {
