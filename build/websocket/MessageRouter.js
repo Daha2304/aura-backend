@@ -119,6 +119,27 @@ class MessageRouter {
                 });
                 return;
             }
+            case "objects.list":
+            case "objects.tree":
+            case "object_tree": {
+                const tree = await this.options.objectService.getObjectTree();
+                this.options.logger?.debug(`Sending object tree with ${tree.length} root nodes`);
+                session.send({
+                    type: "object_tree",
+                    op: message.op,
+                    requestId: message.requestId,
+                    success: true,
+                    ok: true,
+                    payload: {
+                        tree
+                    },
+                    data: {
+                        tree
+                    },
+                    tree
+                });
+                return;
+            }
             case "state.set":
             case "states.set":
                 await this.handleSetState(session, this.requestToSetStateMessage(message));

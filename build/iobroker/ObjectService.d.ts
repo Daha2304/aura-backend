@@ -16,6 +16,17 @@ export interface IoBrokerObject {
     native?: Record<string, unknown>;
     enums?: Record<string, unknown>;
 }
+export interface IoBrokerObjectTreeNode {
+    id: string;
+    name: string;
+    type: string;
+    role?: string;
+    valueType?: string;
+    readable?: boolean;
+    writable?: boolean;
+    unit?: string;
+    children: IoBrokerObjectTreeNode[];
+}
 export interface ObjectReaderAdapter {
     getForeignObjectsAsync(pattern: string, options?: unknown): Promise<Record<string, IoBrokerObject>>;
     getForeignObjectAsync(id: string): Promise<IoBrokerObject | null | undefined>;
@@ -26,4 +37,8 @@ export declare class ObjectService {
     getObjects(): Promise<IoBrokerObject[]>;
     getObject(id: string): Promise<IoBrokerObject | null>;
     getStateObjects(): Promise<IoBrokerObject[]>;
+    getObjectTree(): Promise<IoBrokerObjectTreeNode[]>;
+    private createTreeNode;
+    private getName;
+    private sortTree;
 }
