@@ -245,6 +245,19 @@ export class MessageRouter {
 
       await this.options.subscriptionService.subscribe(id);
       session.subscriptions.add(id);
+
+      const state = await this.options.stateService.getState(id);
+      if (state) {
+        session.send({
+          type: "state_changed",
+          stateId: id,
+          id,
+          value: state.val,
+          val: state.val,
+          ack: state.ack,
+          ts: state.ts
+        });
+      }
     }
 
     session.send({ type: "subscribe", requestId: message.requestId, success: true, ids });
