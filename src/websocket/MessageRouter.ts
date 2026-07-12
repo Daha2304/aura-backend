@@ -286,7 +286,7 @@ export class MessageRouter {
     }
 
     await this.options.stateService.setState(stateId, message.value);
-    session.send({ type: "set_state", requestId: message.requestId, success: true, id: stateId, stateId });
+    session.send({ type: "set_state", requestId: message.requestId, success: true, id: stateId, stateId, value: message.value });
   }
 
   private getIds(message: SubscriptionMessage): string[] {
