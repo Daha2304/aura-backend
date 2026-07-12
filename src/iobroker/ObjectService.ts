@@ -27,6 +27,8 @@ export interface IoBrokerObjectTreeNode {
   readable?: boolean;
   writable?: boolean;
   unit?: string;
+  min?: number;
+  max?: number;
   value?: unknown;
   ack?: boolean;
   ts?: number;
@@ -129,6 +131,14 @@ export class ObjectService {
 
     if (common?.unit) {
       node.unit = common.unit;
+    }
+
+    if (typeof common?.min === "number") {
+      node.min = common.min;
+    }
+
+    if (typeof common?.max === "number") {
+      node.max = common.max;
     }
 
     return node;
