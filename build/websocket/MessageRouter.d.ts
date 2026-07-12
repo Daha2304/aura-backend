@@ -21,6 +21,8 @@ export declare class MessageRouter {
     private routeAuthenticated;
     private handleHello;
     private handleRequest;
+    private collectStateIds;
+    private applyStateValues;
     private handleDiscover;
     private handleSnapshot;
     private handleSubscribe;

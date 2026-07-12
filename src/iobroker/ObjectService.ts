@@ -27,6 +27,9 @@ export interface IoBrokerObjectTreeNode {
   readable?: boolean;
   writable?: boolean;
   unit?: string;
+  value?: unknown;
+  ack?: boolean;
+  ts?: number;
   children: IoBrokerObjectTreeNode[];
 }
 

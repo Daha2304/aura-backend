@@ -123,6 +123,9 @@ class MessageRouter {
             case "objects.tree":
             case "object_tree": {
                 const tree = await this.options.objectService.getObjectTree();
+                const stateIds = this.collectStateIds(tree);
+                const states = await this.options.stateService.getValues(stateIds);
+                this.applyStateValues(tree, states);
                 this.options.logger?.debug(`Sending object tree with ${tree.length} root nodes`);
                 session.send({
                     type: "object_tree",
@@ -146,6 +149,30 @@ class MessageRouter {
                 return;
             default:
                 this.sendError(session, "unsupported_operation", `Unsupported request operation: ${message.op}`, message.requestId);
+        }
+    }
+    collectStateIds(nodes) {
+        const ids = [];
+        for (const node of nodes) {
+            if (node.type === "state") {
+                ids.push(node.id);
+            }
+            ids.push(...this.collectStateIds(node.children));
+        }
+        return ids;
+    }
+    applyStateValues(nodes, states) {
+        for (const node of nodes) {
+            const id = typeof node.id === "string" ? node.id : "";
+            const state = states[id];
+            if (state) {
+                node.value = state.val;
+                node.ack = state.ack;
+                node.ts = state.ts;
+            }
+            if (Array.isArray(node.children)) {
+                this.applyStateValues(node.children, states);
+            }
         }
     }
     async handleDiscover(session, message) {
