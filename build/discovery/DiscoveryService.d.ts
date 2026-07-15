@@ -13,4 +13,7 @@ export declare class DiscoveryService {
     }>;
     createSnapshot(): Promise<AuraSnapshot>;
     private buildRooms;
+    private getDiscoveryObjects;
+    private readName;
+    private humanizeRoomId;
 }

@@ -265,4 +265,60 @@ describe("DeviceBuilder", () => {
       ])
     );
   });
+
+  it("groups alias states by alias room and device folders", () => {
+    const objects: IoBrokerObject[] = [
+      {
+        _id: "alias.0.Wohnzimmer",
+        type: "channel",
+        common: { name: "Wohnzimmer" }
+      },
+      {
+        _id: "alias.0.Wohnzimmer.Deckenlampe",
+        type: "channel",
+        common: { name: "Deckenlampe" }
+      },
+      {
+        _id: "alias.0.Wohnzimmer.Deckenlampe.STATE",
+        type: "state",
+        common: {
+          name: "Ein/Aus",
+          role: "switch.light",
+          type: "boolean",
+          read: true,
+          write: true
+        }
+      },
+      {
+        _id: "alias.0.Wohnzimmer.Deckenlampe.LEVEL",
+        type: "state",
+        common: {
+          name: "Helligkeit",
+          role: "level.dimmer",
+          type: "number",
+          min: 0,
+          max: 100,
+          read: true,
+          write: true
+        }
+      }
+    ];
+
+    const devices = new DeviceBuilder().buildDevices(objects, {
+      "alias.0.Wohnzimmer.Deckenlampe.STATE": { val: true, ack: true, ts: 1 },
+      "alias.0.Wohnzimmer.Deckenlampe.LEVEL": { val: 42, ack: true, ts: 2 }
+    });
+
+    expect(devices).toHaveLength(1);
+    expect(devices[0]).toMatchObject({
+      id: "alias.0.Wohnzimmer.Deckenlampe",
+      name: "Deckenlampe",
+      type: "light",
+      roomId: "alias.0.Wohnzimmer"
+    });
+    expect(devices[0]?.capabilities.map((capability) => capability.stateId)).toEqual([
+      "alias.0.Wohnzimmer.Deckenlampe.STATE",
+      "alias.0.Wohnzimmer.Deckenlampe.LEVEL"
+    ]);
+  });
 });

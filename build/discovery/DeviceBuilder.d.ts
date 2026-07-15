@@ -9,6 +9,7 @@ export declare class DeviceBuilder {
     private getOrCreateGroup;
     private getDeviceId;
     private getAdapterRootDeviceId;
+    private getAliasDeviceId;
     private getMqttDeviceId;
     private getObjectName;
     private readName;
@@ -18,6 +19,7 @@ export declare class DeviceBuilder {
     private humanizeId;
     private getDeviceName;
     private getRoomId;
+    private getAliasRoomId;
     private selectDeviceType;
     private sortCapabilities;
     private sortStates;
@@ -30,4 +32,5 @@ export declare class DeviceBuilder {
     private hasActuatorCombination;
     private isAllowedGenericState;
     private isTrustedDeviceNamespace;
+    private isAliasId;
 }

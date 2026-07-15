@@ -54,7 +54,7 @@ class DeviceBuilder {
             id: deviceId,
             name: this.getDeviceName(deviceId, parent ?? object),
             roomId: this.getRoomId(object),
-            hasStructuredParent: parent?.type === "device" || parent?.type === "channel",
+            hasStructuredParent: this.isAliasId(deviceId) || parent?.type === "device" || parent?.type === "channel",
             capabilities: [],
             states: [],
             deviceTypes: []
@@ -63,6 +63,10 @@ class DeviceBuilder {
         return group;
     }
     getDeviceId(stateId, objects) {
+        const aliasDeviceId = this.getAliasDeviceId(stateId);
+        if (aliasDeviceId) {
+            return aliasDeviceId;
+        }
         const parts = stateId.split(".");
         const adapterRoot = this.getAdapterRootDeviceId(stateId, objects);
         if (adapterRoot) {
@@ -104,6 +108,16 @@ class DeviceBuilder {
         const directDeviceId = parts.slice(0, 3).join(".");
         const direct = objects.find((object) => object._id === directDeviceId);
         return direct?.type === "device" ? direct._id : undefined;
+    }
+    getAliasDeviceId(stateId) {
+        const parts = stateId.split(".");
+        if (!this.isAliasId(stateId) || parts.length < 4) {
+            return undefined;
+        }
+        if (parts.length >= 5) {
+            return parts.slice(0, -1).join(".");
+        }
+        return parts.slice(0, 3).join(".");
     }
     getMqttDeviceId(stateId) {
         const parts = stateId.split(".");
@@ -158,6 +172,9 @@ class DeviceBuilder {
         return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
     }
     isTechnicalName(name, id) {
+        if (this.isAliasId(id)) {
+            return false;
+        }
         const normalizedName = name.trim().toLowerCase();
         const suffix = id.split(".").at(-1)?.toLowerCase() ?? "";
         if (normalizedName === suffix || normalizedName === id.toLowerCase()) {
@@ -202,8 +219,19 @@ class DeviceBuilder {
         return this.getObjectName(object);
     }
     getRoomId(object) {
+        const aliasRoomId = this.getAliasRoomId(object._id);
+        if (aliasRoomId) {
+            return aliasRoomId;
+        }
         const enumIds = Object.keys(object.enums ?? {});
         return enumIds.find((enumId) => enumId.startsWith("enum.rooms."));
+    }
+    getAliasRoomId(id) {
+        const parts = id.split(".");
+        if (!this.isAliasId(id) || parts.length < 4) {
+            return undefined;
+        }
+        return parts.slice(0, 3).join(".");
     }
     selectDeviceType(types) {
         const priority = [
@@ -339,7 +367,10 @@ class DeviceBuilder {
     }
     isTrustedDeviceNamespace(id) {
         const adapter = id.toLowerCase().split(".")[0] ?? "";
-        return ["zigbee2mqtt", "wled", "wifilight", "tuya", "sonoff", "shelly", "denon", "sony-bravia", "zidoo", "mqtt"].includes(adapter);
+        return ["alias", "zigbee2mqtt", "wled", "wifilight", "tuya", "sonoff", "shelly", "denon", "sony-bravia", "zidoo", "mqtt"].includes(adapter);
+    }
+    isAliasId(id) {
+        return id.startsWith("alias.");
     }
 }
 exports.DeviceBuilder = DeviceBuilder;

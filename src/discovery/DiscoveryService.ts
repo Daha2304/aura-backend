@@ -1,5 +1,5 @@
 import type { AuraDevice, AuraRoom, AuraSnapshot } from "../models/AuraDevice";
-import type { ObjectService } from "../iobroker/ObjectService";
+import type { IoBrokerCommon, ObjectService } from "../iobroker/ObjectService";
 import type { StateService } from "../iobroker/StateService";
 import { DeviceBuilder } from "./DeviceBuilder";
 
@@ -12,11 +12,12 @@ export class DiscoveryService {
 
   public async discover(): Promise<{ rooms: AuraRoom[]; devices: AuraDevice[] }> {
     const objects = await this.objectService.getObjects();
-    const stateObjects = objects.filter((object) => object.type === "state");
+    const discoveryObjects = this.getDiscoveryObjects(objects);
+    const stateObjects = discoveryObjects.filter((object) => object.type === "state");
     const stateIds = stateObjects.map((object) => object._id);
     const states = await this.stateService.getValues(stateIds);
-    const devices = this.deviceBuilder.buildDevices(objects, states);
-    const rooms = this.buildRooms(objects, devices);
+    const devices = this.deviceBuilder.buildDevices(discoveryObjects, states);
+    const rooms = this.buildRooms(discoveryObjects, devices);
 
     return { rooms, devices };
   }
@@ -42,10 +43,44 @@ export class DiscoveryService {
 
       rooms.push({
         id: roomId,
-        name: typeof name === "string" ? name : roomId.replace("enum.rooms.", "")
+        name: this.readName(name) ?? this.humanizeRoomId(roomId)
       });
     }
 
     return rooms;
+  }
+
+  private getDiscoveryObjects(objects: Awaited<ReturnType<ObjectService["getObjects"]>>): Awaited<ReturnType<ObjectService["getObjects"]>> {
+    const hasAliasStates = objects.some((object) => object.type === "state" && object._id.startsWith("alias."));
+
+    if (!hasAliasStates) {
+      return objects;
+    }
+
+    return objects.filter((object) => object._id.startsWith("alias."));
+  }
+
+  private readName(name: IoBrokerCommon["name"]): string | undefined {
+    if (typeof name === "string" && name.trim().length > 0) {
+      return name.trim();
+    }
+
+    if (name && typeof name === "object") {
+      const values = name as Record<string, string>;
+      return values.de ?? values.en ?? Object.values(values).find((value) => value.trim().length > 0);
+    }
+
+    return undefined;
+  }
+
+  private humanizeRoomId(roomId: string): string {
+    if (roomId.startsWith("enum.rooms.")) {
+      return roomId.replace("enum.rooms.", "");
+    }
+
+    const parts = roomId.split(".");
+    const raw = roomId.startsWith("alias.") ? (parts[2] ?? roomId) : (parts.at(-1) ?? roomId);
+
+    return raw.replace(/[_-]+/g, " ");
   }
 }

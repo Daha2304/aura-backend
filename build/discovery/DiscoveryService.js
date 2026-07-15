@@ -13,11 +13,12 @@ class DiscoveryService {
     }
     async discover() {
         const objects = await this.objectService.getObjects();
-        const stateObjects = objects.filter((object) => object.type === "state");
+        const discoveryObjects = this.getDiscoveryObjects(objects);
+        const stateObjects = discoveryObjects.filter((object) => object.type === "state");
         const stateIds = stateObjects.map((object) => object._id);
         const states = await this.stateService.getValues(stateIds);
-        const devices = this.deviceBuilder.buildDevices(objects, states);
-        const rooms = this.buildRooms(objects, devices);
+        const devices = this.deviceBuilder.buildDevices(discoveryObjects, states);
+        const rooms = this.buildRooms(discoveryObjects, devices);
         return { rooms, devices };
     }
     async createSnapshot() {
@@ -37,10 +38,35 @@ class DiscoveryService {
             const name = roomObject?.common?.name;
             rooms.push({
                 id: roomId,
-                name: typeof name === "string" ? name : roomId.replace("enum.rooms.", "")
+                name: this.readName(name) ?? this.humanizeRoomId(roomId)
             });
         }
         return rooms;
+    }
+    getDiscoveryObjects(objects) {
+        const hasAliasStates = objects.some((object) => object.type === "state" && object._id.startsWith("alias."));
+        if (!hasAliasStates) {
+            return objects;
+        }
+        return objects.filter((object) => object._id.startsWith("alias."));
+    }
+    readName(name) {
+        if (typeof name === "string" && name.trim().length > 0) {
+            return name.trim();
+        }
+        if (name && typeof name === "object") {
+            const values = name;
+            return values.de ?? values.en ?? Object.values(values).find((value) => value.trim().length > 0);
+        }
+        return undefined;
+    }
+    humanizeRoomId(roomId) {
+        if (roomId.startsWith("enum.rooms.")) {
+            return roomId.replace("enum.rooms.", "");
+        }
+        const parts = roomId.split(".");
+        const raw = roomId.startsWith("alias.") ? (parts[2] ?? roomId) : (parts.at(-1) ?? roomId);
+        return raw.replace(/[_-]+/g, " ");
     }
 }
 exports.DiscoveryService = DiscoveryService;
