@@ -7,6 +7,7 @@ export interface IoBrokerCommon {
     unit?: string;
     min?: number;
     max?: number;
+    step?: number;
     states?: unknown;
 }
 export interface IoBrokerObject {

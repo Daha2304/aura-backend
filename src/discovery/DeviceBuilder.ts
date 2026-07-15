@@ -381,6 +381,14 @@ export class DeviceBuilder {
       state.max = object.common.max;
     }
 
+    if (typeof object.common?.step === "number") {
+      state.step = object.common.step;
+    }
+
+    if (object.common?.states !== undefined) {
+      state.states = object.common.states;
+    }
+
     return state;
   }
 

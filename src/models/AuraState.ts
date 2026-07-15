@@ -8,5 +8,7 @@ export interface AuraState {
   unit?: string;
   min?: number;
   max?: number;
+  step?: number;
+  states?: unknown;
   value?: unknown;
 }

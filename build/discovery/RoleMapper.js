@@ -59,6 +59,8 @@ class RoleMapper {
             id: mapping.capabilityId,
             stateId: object._id,
             name: this.getCapabilityName(object, mapping.capabilityId),
+            role: object.common?.role,
+            type: object.common?.type,
             readable: object.common?.read === true,
             writable: object.common?.write === true,
             valueType: this.getValueType(object),
