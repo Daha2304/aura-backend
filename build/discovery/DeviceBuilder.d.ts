@@ -18,6 +18,7 @@ export declare class DeviceBuilder {
     private isTechnicalName;
     private humanizeId;
     private getDeviceName;
+    private getAliasDeviceName;
     private getRoomId;
     private getAliasRoomId;
     private selectDeviceType;

@@ -290,6 +290,10 @@ export class DeviceBuilder {
   }
 
   private getDeviceName(deviceId: string, object: IoBrokerObject): string {
+    if (this.isAliasId(deviceId)) {
+      return this.getAliasDeviceName(deviceId);
+    }
+
     if (deviceId === "denon.0") {
       return "Marantz SR7010";
     }
@@ -303,6 +307,13 @@ export class DeviceBuilder {
     }
 
     return this.getObjectName(object);
+  }
+
+  private getAliasDeviceName(deviceId: string): string {
+    const parts = deviceId.split(".");
+    const raw = parts.slice(3).join(" ") || parts.at(-1) || deviceId;
+
+    return raw.replace(/[_-]+/g, " ").trim();
   }
 
   private getRoomId(object: IoBrokerObject): string | undefined {

@@ -321,4 +321,50 @@ describe("DeviceBuilder", () => {
       "alias.0.Wohnzimmer.Deckenlampe.LEVEL"
     ]);
   });
+
+  it("keeps alias room device state hierarchy for sensors", () => {
+    const objects: IoBrokerObject[] = [
+      {
+        _id: "alias.0.Badezimmer",
+        type: "folder",
+        common: { name: "Badezimmer" }
+      },
+      {
+        _id: "alias.0.Badezimmer.Dusche",
+        type: "channel",
+        common: { name: "Dusche", role: "motion" }
+      },
+      {
+        _id: "alias.0.Badezimmer.Dusche.ACTUAL",
+        type: "state",
+        common: {
+          name: "ACTUAL",
+          role: "sensor.motion",
+          type: "boolean",
+          read: true,
+          write: false
+        }
+      }
+    ];
+
+    const devices = new DeviceBuilder().buildDevices(objects, {
+      "alias.0.Badezimmer.Dusche.ACTUAL": { val: false, ack: true, ts: 1 }
+    });
+
+    expect(devices).toHaveLength(1);
+    expect(devices[0]).toMatchObject({
+      id: "alias.0.Badezimmer.Dusche",
+      name: "Dusche",
+      type: "motion",
+      roomId: "alias.0.Badezimmer"
+    });
+    expect(devices[0]?.states).toEqual([
+      expect.objectContaining({
+        id: "alias.0.Badezimmer.Dusche.ACTUAL",
+        name: "ACTUAL",
+        role: "sensor.motion",
+        value: false
+      })
+    ]);
+  });
 });

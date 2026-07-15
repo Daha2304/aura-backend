@@ -207,6 +207,9 @@ class DeviceBuilder {
         return primary.replace(/[_-]+/g, " ");
     }
     getDeviceName(deviceId, object) {
+        if (this.isAliasId(deviceId)) {
+            return this.getAliasDeviceName(deviceId);
+        }
         if (deviceId === "denon.0") {
             return "Marantz SR7010";
         }
@@ -217,6 +220,11 @@ class DeviceBuilder {
             return "Zidoo";
         }
         return this.getObjectName(object);
+    }
+    getAliasDeviceName(deviceId) {
+        const parts = deviceId.split(".");
+        const raw = parts.slice(3).join(" ") || parts.at(-1) || deviceId;
+        return raw.replace(/[_-]+/g, " ").trim();
     }
     getRoomId(object) {
         const aliasRoomId = this.getAliasRoomId(object._id);
