@@ -320,6 +320,9 @@ class DeviceBuilder {
         if (this.getDeviceId(object._id, []) === undefined) {
             return false;
         }
+        if (this.isAliasId(object._id) && !this.hasAliasTarget(object)) {
+            return false;
+        }
         if (this.isAliasId(object._id)) {
             return object.common?.read !== false || object.common?.write === true;
         }
@@ -388,6 +391,20 @@ class DeviceBuilder {
     }
     isAliasId(id) {
         return id.startsWith("alias.");
+    }
+    hasAliasTarget(object) {
+        const alias = object.common?.alias;
+        if (!alias) {
+            return false;
+        }
+        const idTarget = alias.id;
+        if (typeof idTarget === "string" && idTarget.trim().length > 0) {
+            return true;
+        }
+        if (idTarget && typeof idTarget === "object") {
+            return [idTarget.read, idTarget.write].some((target) => typeof target === "string" && target.trim().length > 0);
+        }
+        return [alias.read, alias.write].some((target) => typeof target === "string" && target.trim().length > 0);
     }
 }
 exports.DeviceBuilder = DeviceBuilder;

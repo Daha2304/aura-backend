@@ -437,6 +437,10 @@ export class DeviceBuilder {
       return false;
     }
 
+    if (this.isAliasId(object._id) && !this.hasAliasTarget(object)) {
+      return false;
+    }
+
     if (this.isAliasId(object._id)) {
       return object.common?.read !== false || object.common?.write === true;
     }
@@ -527,5 +531,25 @@ export class DeviceBuilder {
 
   private isAliasId(id: string): boolean {
     return id.startsWith("alias.");
+  }
+
+  private hasAliasTarget(object: IoBrokerObject): boolean {
+    const alias = object.common?.alias;
+
+    if (!alias) {
+      return false;
+    }
+
+    const idTarget = alias.id;
+
+    if (typeof idTarget === "string" && idTarget.trim().length > 0) {
+      return true;
+    }
+
+    if (idTarget && typeof idTarget === "object") {
+      return [idTarget.read, idTarget.write].some((target) => typeof target === "string" && target.trim().length > 0);
+    }
+
+    return [alias.read, alias.write].some((target) => typeof target === "string" && target.trim().length > 0);
   }
 }

@@ -4,6 +4,11 @@ export interface IoBrokerCommon {
   type?: string;
   read?: boolean;
   write?: boolean;
+  alias?: {
+    id?: string | { read?: string; write?: string };
+    read?: string;
+    write?: string;
+  };
   unit?: string;
   min?: number;
   max?: number;

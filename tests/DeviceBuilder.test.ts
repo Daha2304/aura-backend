@@ -285,6 +285,7 @@ describe("DeviceBuilder", () => {
           name: "Ein/Aus",
           role: "switch.light",
           type: "boolean",
+          alias: { id: "shelly.0.Deckenlampe.Switch" },
           read: true,
           write: true
         }
@@ -298,6 +299,7 @@ describe("DeviceBuilder", () => {
           type: "number",
           min: 0,
           max: 100,
+          alias: { id: "shelly.0.Deckenlampe.Dimmer" },
           read: true,
           write: true
         }
@@ -341,6 +343,7 @@ describe("DeviceBuilder", () => {
           name: "ACTUAL",
           role: "sensor.motion",
           type: "boolean",
+          alias: { id: "zigbee2mqtt.0.0xa4c138a0778a1494.occupancy" },
           read: true,
           write: false
         }
@@ -368,6 +371,52 @@ describe("DeviceBuilder", () => {
     ]);
   });
 
+  it("skips alias states without a target", () => {
+    const objects: IoBrokerObject[] = [
+      {
+        _id: "alias.0.Küche",
+        type: "folder",
+        common: { name: "Küche" }
+      },
+      {
+        _id: "alias.0.Küche.LD2410C",
+        type: "channel",
+        common: { name: "LD2410C", role: "motion" }
+      },
+      {
+        _id: "alias.0.Küche.LD2410C.ACTUAL",
+        type: "state",
+        common: {
+          name: "ACTUAL",
+          role: "sensor.motion",
+          type: "boolean",
+          read: true,
+          write: false
+        }
+      },
+      {
+        _id: "alias.0.Küche.LD2410C.ANWESENHEIT",
+        type: "state",
+        common: {
+          name: "ANWESENHEIT",
+          role: "sensor.motion",
+          type: "boolean",
+          alias: { id: "mqtt.0.ld2410c.kueche.binary_sensor.radar_anwesenheit.state" },
+          read: true,
+          write: false
+        }
+      }
+    ];
+
+    const devices = new DeviceBuilder().buildDevices(objects, {
+      "alias.0.Küche.LD2410C.ACTUAL": { val: null, ack: true, ts: 1 },
+      "alias.0.Küche.LD2410C.ANWESENHEIT": { val: false, ack: true, ts: 1 }
+    });
+
+    expect(devices).toHaveLength(1);
+    expect(devices[0]?.states.map((state) => state.id)).toEqual(["alias.0.Küche.LD2410C.ANWESENHEIT"]);
+  });
+
   it("keeps all alias states for mixed display and control devices", () => {
     const objects: IoBrokerObject[] = [
       {
@@ -388,6 +437,7 @@ describe("DeviceBuilder", () => {
           role: "value.temperature",
           type: "number",
           unit: "°C",
+          alias: { id: "tuya.0.bf09ed5c3cfb398364fzzm.3" },
           read: true,
           write: false
         }
@@ -399,6 +449,7 @@ describe("DeviceBuilder", () => {
           name: "MODE",
           role: "level.mode.airconditioner",
           type: "number",
+          alias: { id: "tuya.0.bf09ed5c3cfb398364fzzm.4" },
           read: true,
           write: true
         }
@@ -410,6 +461,7 @@ describe("DeviceBuilder", () => {
           name: "Schlafzimmer Klima POWER",
           role: "switch.power",
           type: "boolean",
+          alias: { id: "tuya.0.bf09ed5c3cfb398364fzzm.1" },
           write: true
         }
       },
@@ -423,6 +475,7 @@ describe("DeviceBuilder", () => {
           unit: "°C",
           min: 16,
           max: 30,
+          alias: { id: "tuya.0.bf09ed5c3cfb398364fzzm.2" },
           write: true
         }
       },
@@ -443,6 +496,7 @@ describe("DeviceBuilder", () => {
           name: "Wohnzimmer Lautsprecher ON SET",
           role: "switch.light",
           type: "boolean",
+          alias: { id: "sonoff.0.Lautsprecher-Licht.POWER" },
           write: true
         }
       },
@@ -456,6 +510,7 @@ describe("DeviceBuilder", () => {
           unit: "%",
           min: 0,
           max: 100,
+          alias: { id: "sonoff.0.Lautsprecher-Licht.Dimmer" },
           read: true,
           write: true
         }

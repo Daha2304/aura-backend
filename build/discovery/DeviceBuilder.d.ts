@@ -34,4 +34,5 @@ export declare class DeviceBuilder {
     private isAllowedGenericState;
     private isTrustedDeviceNamespace;
     private isAliasId;
+    private hasAliasTarget;
 }

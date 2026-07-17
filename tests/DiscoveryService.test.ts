@@ -23,6 +23,7 @@ describe("DiscoveryService", () => {
         common: {
           role: "switch.light",
           type: "boolean",
+          alias: { id: "sonoff.0.RawLamp.POWER" },
           read: true,
           write: true
         }
