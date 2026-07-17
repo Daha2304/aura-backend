@@ -13,7 +13,7 @@ class DeviceBuilder {
             if (object.type !== "state") {
                 continue;
             }
-            if (!this.isReadableState(object)) {
+            if (!this.isUsableState(object)) {
                 continue;
             }
             const deviceId = this.getDeviceId(object._id, objects);
@@ -308,12 +308,12 @@ class DeviceBuilder {
         if (role.startsWith("scriptenabled") || role === "indicator.connected") {
             return false;
         }
-        if (!this.isReadableState(object)) {
+        if (!this.isUsableState(object)) {
             return false;
         }
         return true;
     }
-    isReadableState(object) {
+    isUsableState(object) {
         if (this.isExcludedNamespace(object._id)) {
             return false;
         }
@@ -324,7 +324,13 @@ class DeviceBuilder {
             return false;
         }
         if (this.isAliasId(object._id)) {
-            return object.common?.read !== false || object.common?.write === true;
+            return this.hasAliasReadTarget(object) || this.hasAliasWriteTarget(object) || object.common?.write === true;
+        }
+        return object.common?.read === true;
+    }
+    isReadableState(object) {
+        if (this.isAliasId(object._id)) {
+            return object.common?.read !== false && this.hasAliasReadTarget(object);
         }
         return object.common?.read === true;
     }
@@ -393,6 +399,9 @@ class DeviceBuilder {
         return id.startsWith("alias.");
     }
     hasAliasTarget(object) {
+        return this.hasAliasReadTarget(object) || this.hasAliasWriteTarget(object);
+    }
+    hasAliasReadTarget(object) {
         const alias = object.common?.alias;
         if (!alias) {
             return false;
@@ -402,9 +411,23 @@ class DeviceBuilder {
             return true;
         }
         if (idTarget && typeof idTarget === "object") {
-            return [idTarget.read, idTarget.write].some((target) => typeof target === "string" && target.trim().length > 0);
+            return typeof idTarget.read === "string" && idTarget.read.trim().length > 0;
         }
-        return [alias.read, alias.write].some((target) => typeof target === "string" && target.trim().length > 0);
+        return typeof alias.read === "string" && alias.read.trim().length > 0;
+    }
+    hasAliasWriteTarget(object) {
+        const alias = object.common?.alias;
+        if (!alias) {
+            return false;
+        }
+        const idTarget = alias.id;
+        if (typeof idTarget === "string" && idTarget.trim().length > 0) {
+            return true;
+        }
+        if (idTarget && typeof idTarget === "object") {
+            return typeof idTarget.write === "string" && idTarget.write.trim().length > 0;
+        }
+        return typeof alias.write === "string" && alias.write.trim().length > 0;
     }
 }
 exports.DeviceBuilder = DeviceBuilder;

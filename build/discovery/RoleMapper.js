@@ -86,9 +86,23 @@ class RoleMapper {
     }
     isReadable(object) {
         if (object._id.startsWith("alias.")) {
-            return object.common?.read !== false || object.common?.write === true;
+            return object.common?.read !== false && this.hasAliasReadTarget(object);
         }
         return object.common?.read === true;
+    }
+    hasAliasReadTarget(object) {
+        const alias = object.common?.alias;
+        if (!alias) {
+            return false;
+        }
+        const idTarget = alias.id;
+        if (typeof idTarget === "string" && idTarget.trim().length > 0) {
+            return true;
+        }
+        if (idTarget && typeof idTarget === "object") {
+            return typeof idTarget.read === "string" && idTarget.read.trim().length > 0;
+        }
+        return typeof alias.read === "string" && alias.read.trim().length > 0;
     }
     matches(role, candidates) {
         return candidates.some((candidate) => role === candidate || role.includes(candidate));

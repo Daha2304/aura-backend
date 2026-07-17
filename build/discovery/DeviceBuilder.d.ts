@@ -26,6 +26,7 @@ export declare class DeviceBuilder {
     private sortStates;
     private createAuraState;
     private isDiscoverableState;
+    private isUsableState;
     private isReadableState;
     private isExcludedNamespace;
     private isDiscoverableGroup;
@@ -35,4 +36,6 @@ export declare class DeviceBuilder {
     private isTrustedDeviceNamespace;
     private isAliasId;
     private hasAliasTarget;
+    private hasAliasReadTarget;
+    private hasAliasWriteTarget;
 }

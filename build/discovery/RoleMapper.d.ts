@@ -10,6 +10,7 @@ export declare class RoleMapper {
     createCapability(object: IoBrokerObject, value?: unknown): AuraCapability | null;
     private getValueType;
     private isReadable;
+    private hasAliasReadTarget;
     private matches;
     private isSwitchLikeValue;
     private isKnownSwitchState;

@@ -26,7 +26,7 @@ export class DeviceBuilder {
         continue;
       }
 
-      if (!this.isReadableState(object)) {
+      if (!this.isUsableState(object)) {
         continue;
       }
 
@@ -421,14 +421,14 @@ export class DeviceBuilder {
       return false;
     }
 
-    if (!this.isReadableState(object)) {
+    if (!this.isUsableState(object)) {
       return false;
     }
 
     return true;
   }
 
-  private isReadableState(object: IoBrokerObject): boolean {
+  private isUsableState(object: IoBrokerObject): boolean {
     if (this.isExcludedNamespace(object._id)) {
       return false;
     }
@@ -442,7 +442,15 @@ export class DeviceBuilder {
     }
 
     if (this.isAliasId(object._id)) {
-      return object.common?.read !== false || object.common?.write === true;
+      return this.hasAliasReadTarget(object) || this.hasAliasWriteTarget(object) || object.common?.write === true;
+    }
+
+    return object.common?.read === true;
+  }
+
+  private isReadableState(object: IoBrokerObject): boolean {
+    if (this.isAliasId(object._id)) {
+      return object.common?.read !== false && this.hasAliasReadTarget(object);
     }
 
     return object.common?.read === true;
@@ -534,6 +542,10 @@ export class DeviceBuilder {
   }
 
   private hasAliasTarget(object: IoBrokerObject): boolean {
+    return this.hasAliasReadTarget(object) || this.hasAliasWriteTarget(object);
+  }
+
+  private hasAliasReadTarget(object: IoBrokerObject): boolean {
     const alias = object.common?.alias;
 
     if (!alias) {
@@ -547,9 +559,29 @@ export class DeviceBuilder {
     }
 
     if (idTarget && typeof idTarget === "object") {
-      return [idTarget.read, idTarget.write].some((target) => typeof target === "string" && target.trim().length > 0);
+      return typeof idTarget.read === "string" && idTarget.read.trim().length > 0;
     }
 
-    return [alias.read, alias.write].some((target) => typeof target === "string" && target.trim().length > 0);
+    return typeof alias.read === "string" && alias.read.trim().length > 0;
+  }
+
+  private hasAliasWriteTarget(object: IoBrokerObject): boolean {
+    const alias = object.common?.alias;
+
+    if (!alias) {
+      return false;
+    }
+
+    const idTarget = alias.id;
+
+    if (typeof idTarget === "string" && idTarget.trim().length > 0) {
+      return true;
+    }
+
+    if (idTarget && typeof idTarget === "object") {
+      return typeof idTarget.write === "string" && idTarget.write.trim().length > 0;
+    }
+
+    return typeof alias.write === "string" && alias.write.trim().length > 0;
   }
 }

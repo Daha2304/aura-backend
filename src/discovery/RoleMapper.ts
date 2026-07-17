@@ -117,10 +117,30 @@ export class RoleMapper {
 
   private isReadable(object: IoBrokerObject): boolean {
     if (object._id.startsWith("alias.")) {
-      return object.common?.read !== false || object.common?.write === true;
+      return object.common?.read !== false && this.hasAliasReadTarget(object);
     }
 
     return object.common?.read === true;
+  }
+
+  private hasAliasReadTarget(object: IoBrokerObject): boolean {
+    const alias = object.common?.alias;
+
+    if (!alias) {
+      return false;
+    }
+
+    const idTarget = alias.id;
+
+    if (typeof idTarget === "string" && idTarget.trim().length > 0) {
+      return true;
+    }
+
+    if (idTarget && typeof idTarget === "object") {
+      return typeof idTarget.read === "string" && idTarget.read.trim().length > 0;
+    }
+
+    return typeof alias.read === "string" && alias.read.trim().length > 0;
   }
 
   private matches(role: string, candidates: string[]): boolean {

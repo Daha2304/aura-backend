@@ -417,6 +417,52 @@ describe("DeviceBuilder", () => {
     expect(devices[0]?.states.map((state) => state.id)).toEqual(["alias.0.Küche.LD2410C.ANWESENHEIT"]);
   });
 
+  it("keeps writable alias states without subscribing read metadata", () => {
+    const objects: IoBrokerObject[] = [
+      {
+        _id: "alias.0.Wohnzimmer",
+        type: "folder",
+        common: { name: "Wohnzimmer" }
+      },
+      {
+        _id: "alias.0.Wohnzimmer.Shaker",
+        type: "channel",
+        common: { name: "Shaker", role: "socket" }
+      },
+      {
+        _id: "alias.0.Wohnzimmer.Shaker.SET",
+        type: "state",
+        common: {
+          name: "SET",
+          role: "switch",
+          type: "boolean",
+          alias: { id: { write: "zigbee2mqtt.0.0xc4988600000fb241.state" } },
+          write: true
+        }
+      }
+    ];
+
+    const devices = new DeviceBuilder().buildDevices(objects, {
+      "alias.0.Wohnzimmer.Shaker.SET": { val: false, ack: true, ts: 1 }
+    });
+
+    expect(devices).toHaveLength(1);
+    expect(devices[0]?.states).toEqual([
+      expect.objectContaining({
+        id: "alias.0.Wohnzimmer.Shaker.SET",
+        readable: false,
+        writable: true
+      })
+    ]);
+    expect(devices[0]?.capabilities).toEqual([
+      expect.objectContaining({
+        stateId: "alias.0.Wohnzimmer.Shaker.SET",
+        readable: false,
+        writable: true
+      })
+    ]);
+  });
+
   it("keeps all alias states for mixed display and control devices", () => {
     const objects: IoBrokerObject[] = [
       {
