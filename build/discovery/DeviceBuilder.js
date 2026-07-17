@@ -273,7 +273,7 @@ class DeviceBuilder {
             name: this.getObjectName(object),
             role: object.common?.role,
             type: object.common?.type,
-            readable: object.common?.read === true,
+            readable: this.isReadableState(object),
             writable: object.common?.write === true,
             value
         };
@@ -319,6 +319,9 @@ class DeviceBuilder {
         }
         if (this.getDeviceId(object._id, []) === undefined) {
             return false;
+        }
+        if (this.isAliasId(object._id)) {
+            return object.common?.read !== false || object.common?.write === true;
         }
         return object.common?.read === true;
     }

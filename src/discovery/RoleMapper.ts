@@ -84,7 +84,7 @@ export class RoleMapper {
       name: this.getCapabilityName(object, mapping.capabilityId),
       role: object.common?.role,
       type: object.common?.type,
-      readable: object.common?.read === true,
+      readable: this.isReadable(object),
       writable: object.common?.write === true,
       valueType: this.getValueType(object),
       value
@@ -113,6 +113,14 @@ export class RoleMapper {
     }
 
     return "string";
+  }
+
+  private isReadable(object: IoBrokerObject): boolean {
+    if (object._id.startsWith("alias.")) {
+      return object.common?.read !== false || object.common?.write === true;
+    }
+
+    return object.common?.read === true;
   }
 
   private matches(role: string, candidates: string[]): boolean {

@@ -367,4 +367,140 @@ describe("DeviceBuilder", () => {
       })
     ]);
   });
+
+  it("keeps all alias states for mixed display and control devices", () => {
+    const objects: IoBrokerObject[] = [
+      {
+        _id: "alias.0.Schlafzimmer",
+        type: "folder",
+        common: { name: "Schlafzimmer" }
+      },
+      {
+        _id: "alias.0.Schlafzimmer.Klima",
+        type: "channel",
+        common: { name: "Klima", role: "airCondition" }
+      },
+      {
+        _id: "alias.0.Schlafzimmer.Klima.ACTUAL",
+        type: "state",
+        common: {
+          name: "Schlafzimmer Klima ACTUAL",
+          role: "value.temperature",
+          type: "number",
+          unit: "°C",
+          read: true,
+          write: false
+        }
+      },
+      {
+        _id: "alias.0.Schlafzimmer.Klima.MODE",
+        type: "state",
+        common: {
+          name: "MODE",
+          role: "level.mode.airconditioner",
+          type: "number",
+          read: true,
+          write: true
+        }
+      },
+      {
+        _id: "alias.0.Schlafzimmer.Klima.POWER",
+        type: "state",
+        common: {
+          name: "Schlafzimmer Klima POWER",
+          role: "switch.power",
+          type: "boolean",
+          write: true
+        }
+      },
+      {
+        _id: "alias.0.Schlafzimmer.Klima.SET",
+        type: "state",
+        common: {
+          name: "SET",
+          role: "level.temperature",
+          type: "number",
+          unit: "°C",
+          min: 16,
+          max: 30,
+          write: true
+        }
+      },
+      {
+        _id: "alias.0.Wohnzimmer",
+        type: "folder",
+        common: { name: "Wohnzimmer" }
+      },
+      {
+        _id: "alias.0.Wohnzimmer.Lautsprecher",
+        type: "channel",
+        common: { name: "Lautsprecher", role: "dimmer" }
+      },
+      {
+        _id: "alias.0.Wohnzimmer.Lautsprecher.ON_SET",
+        type: "state",
+        common: {
+          name: "Wohnzimmer Lautsprecher ON SET",
+          role: "switch.light",
+          type: "boolean",
+          write: true
+        }
+      },
+      {
+        _id: "alias.0.Wohnzimmer.Lautsprecher.SET",
+        type: "state",
+        common: {
+          name: "SET",
+          role: "level.dimmer",
+          type: "number",
+          unit: "%",
+          min: 0,
+          max: 100,
+          read: true,
+          write: true
+        }
+      }
+    ];
+
+    const devices = new DeviceBuilder().buildDevices(objects, {
+      "alias.0.Schlafzimmer.Klima.ACTUAL": { val: 25, ack: true, ts: 1 },
+      "alias.0.Schlafzimmer.Klima.MODE": { val: 2, ack: true, ts: 1 },
+      "alias.0.Schlafzimmer.Klima.POWER": { val: false, ack: true, ts: 1 },
+      "alias.0.Schlafzimmer.Klima.SET": { val: null, ack: true, ts: 1 },
+      "alias.0.Wohnzimmer.Lautsprecher.ON_SET": { val: false, ack: true, ts: 1 },
+      "alias.0.Wohnzimmer.Lautsprecher.SET": { val: 100, ack: true, ts: 1 }
+    });
+
+    const klima = devices.find((device) => device.id === "alias.0.Schlafzimmer.Klima");
+    const lautsprecher = devices.find((device) => device.id === "alias.0.Wohnzimmer.Lautsprecher");
+
+    expect(klima).toMatchObject({
+      roomId: "alias.0.Schlafzimmer"
+    });
+    expect(klima?.states.map((state) => state.id)).toEqual([
+      "alias.0.Schlafzimmer.Klima.ACTUAL",
+      "alias.0.Schlafzimmer.Klima.MODE",
+      "alias.0.Schlafzimmer.Klima.POWER",
+      "alias.0.Schlafzimmer.Klima.SET"
+    ]);
+    expect(klima?.capabilities.map((capability) => capability.stateId)).toEqual(
+      expect.arrayContaining([
+        "alias.0.Schlafzimmer.Klima.ACTUAL",
+        "alias.0.Schlafzimmer.Klima.POWER",
+        "alias.0.Schlafzimmer.Klima.SET"
+      ])
+    );
+
+    expect(lautsprecher).toMatchObject({
+      roomId: "alias.0.Wohnzimmer"
+    });
+    expect(lautsprecher?.states.map((state) => state.id)).toEqual([
+      "alias.0.Wohnzimmer.Lautsprecher.ON_SET",
+      "alias.0.Wohnzimmer.Lautsprecher.SET"
+    ]);
+    expect(lautsprecher?.capabilities.map((capability) => capability.stateId)).toEqual([
+      "alias.0.Wohnzimmer.Lautsprecher.ON_SET",
+      "alias.0.Wohnzimmer.Lautsprecher.SET"
+    ]);
+  });
 });
