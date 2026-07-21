@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MessageRouter } from "../src/websocket/MessageRouter";
 import type { ClientSession } from "../src/websocket/ClientSession";
+import type { IoBrokerObject } from "../src/iobroker/ObjectService";
 
 class TestSession {
   public authenticated = false;
@@ -12,8 +13,8 @@ class TestSession {
   }
 }
 
-function createRouter(): MessageRouter {
-  return new MessageRouter({
+function createRouter(overrides: Partial<ConstructorParameters<typeof MessageRouter>[0]> = {}): MessageRouter {
+  const options: ConstructorParameters<typeof MessageRouter>[0] = {
     token: "1234qwer",
     discoveryService: {
       discover: async () => ({
@@ -55,17 +56,28 @@ function createRouter(): MessageRouter {
       })
     },
     objectService: {
-      getObject: async () => null
+      getObjects: async () => [],
+      getObject: async () => null,
+      getStateObjects: async () => [],
+      getObjectTree: async () => []
     },
     stateService: {
+      getState: async () => null,
+      getValues: async () => ({}),
       validateWritableValue: () => null,
+      getValueType: () => "string",
       setState: async () => undefined
     },
     subscriptionService: {
       subscribe: async () => undefined,
       unsubscribe: async () => undefined
     }
-  } as ConstructorParameters<typeof MessageRouter>[0]);
+  };
+
+  return new MessageRouter({
+    ...options,
+    ...overrides
+  });
 }
 
 describe("MessageRouter", () => {
@@ -198,6 +210,125 @@ describe("MessageRouter", () => {
     expect(session.messages[0]).toEqual({
       type: "pong",
       ts: 1783701758431
+    });
+  });
+
+  it("keeps objects.list compatible with object tree responses", async () => {
+    const session = new TestSession();
+    session.authenticated = true;
+
+    await createRouter({
+      objectService: {
+        getObjects: async () => [],
+        getObject: async () => null,
+        getStateObjects: async () => [],
+        getObjectTree: async () => [
+          {
+            id: "alias",
+            name: "alias",
+            type: "folder",
+            children: []
+          }
+        ]
+      },
+      stateService: {
+        getState: async () => null,
+        getValues: async () => ({}),
+        validateWritableValue: () => null,
+        getValueType: () => "string",
+        setState: async () => undefined
+      }
+    }).route(session as unknown as ClientSession, JSON.stringify({
+      type: "request",
+      op: "objects.list",
+      requestId: "objects_1"
+    }));
+
+    expect(session.messages[0]).toMatchObject({
+      type: "object_tree",
+      op: "objects.list",
+      requestId: "objects_1",
+      tree: [
+        {
+          id: "alias"
+        }
+      ]
+    });
+  });
+
+  it("answers bridge info and alias inspection requests", async () => {
+    const session = new TestSession();
+    session.authenticated = true;
+    const objects: IoBrokerObject[] = [
+      {
+        _id: "alias.0.Wohnzimmer.Marantz.INPUT",
+        type: "state",
+        common: {
+          name: "INPUT",
+          role: "media.quickSelect",
+          type: "string",
+          read: true,
+          write: true,
+          states: {
+            MPLAY: "MPLAY",
+            CD: "CD"
+          },
+          alias: {
+            id: "denon.0.zoneMain.selectInput"
+          }
+        }
+      }
+    ];
+
+    const router = createRouter({
+      objectService: {
+        getObjects: async () => objects,
+        getObject: async () => null,
+        getStateObjects: async () => objects,
+        getObjectTree: async () => []
+      }
+    });
+
+    await router.route(session as unknown as ClientSession, JSON.stringify({
+      type: "request",
+      op: "bridge.info",
+      requestId: "bridge_1"
+    }));
+    await router.route(session as unknown as ClientSession, JSON.stringify({
+      type: "request",
+      op: "aliases.inspect",
+      requestId: "aliases_1"
+    }));
+
+    expect(session.messages[0]).toMatchObject({
+      type: "response",
+      op: "bridge.info",
+      payload: {
+        operations: expect.arrayContaining(["bridge.objects.list", "aliases.inspect", "instances.list"])
+      }
+    });
+    expect(session.messages[1]).toMatchObject({
+      type: "response",
+      op: "aliases.inspect",
+      payload: {
+        count: 1,
+        aliases: [
+          {
+            id: "alias.0.Wohnzimmer.Marantz.INPUT",
+            room: "Wohnzimmer",
+            device: "Marantz",
+            state: "INPUT",
+            role: "media.quickSelect",
+            type: "string",
+            readTarget: "denon.0.zoneMain.selectInput",
+            writeTarget: "denon.0.zoneMain.selectInput",
+            states: {
+              MPLAY: "MPLAY",
+              CD: "CD"
+            }
+          }
+        ]
+      }
     });
   });
 });

@@ -49,10 +49,10 @@ export interface ObjectReaderAdapter {
 export class ObjectService {
   public constructor(private readonly adapter: ObjectReaderAdapter) {}
 
-  public async getObjects(): Promise<IoBrokerObject[]> {
-    const objects = await this.adapter.getForeignObjectsAsync("*");
+  public async getObjects(options: { includeSystem?: boolean; pattern?: string } = {}): Promise<IoBrokerObject[]> {
+    const objects = await this.adapter.getForeignObjectsAsync(options.pattern ?? "*");
 
-    return Object.values(objects).filter((object) => !object._id.startsWith("system."));
+    return Object.values(objects).filter((object) => options.includeSystem === true || !object._id.startsWith("system."));
   }
 
   public async getObject(id: string): Promise<IoBrokerObject | null> {

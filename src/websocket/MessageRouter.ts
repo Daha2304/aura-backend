@@ -1,5 +1,5 @@
 import type { DiscoveryService } from "../discovery/DiscoveryService";
-import type { ObjectService } from "../iobroker/ObjectService";
+import type { IoBrokerObject, ObjectService } from "../iobroker/ObjectService";
 import type { StateService } from "../iobroker/StateService";
 import type { SubscriptionService } from "../iobroker/SubscriptionService";
 import type { AuraCapability } from "../models/AuraCapability";
@@ -146,6 +146,45 @@ export class MessageRouter {
         });
         return;
       }
+      case "bridge.objects.list":
+        await this.handleObjectsList(session, message);
+        return;
+      case "objects.get":
+        await this.handleObjectsGet(session, message);
+        return;
+      case "states.get":
+        await this.handleStatesGet(session, message);
+        return;
+      case "aliases.inspect":
+        await this.handleAliasesInspect(session, message);
+        return;
+      case "rooms.list":
+        await this.handleRoomsList(session, message);
+        return;
+      case "instances.list":
+        await this.handleInstancesList(session, message);
+        return;
+      case "adapter.status":
+        await this.handleAdapterStatus(session, message);
+        return;
+      case "bridge.info":
+        this.sendBridgeResponse(session, message, {
+          name: "aura-backend-bridge",
+          version: 1,
+          mode: "token-protected",
+          operations: [
+            "bridge.info",
+            "bridge.objects.list",
+            "objects.get",
+            "states.get",
+            "states.set",
+            "aliases.inspect",
+            "rooms.list",
+            "instances.list",
+            "adapter.status"
+          ]
+        });
+        return;
       case "objects.list":
       case "objects.tree":
       case "object_tree": {
@@ -177,6 +216,130 @@ export class MessageRouter {
       default:
         this.sendError(session, "unsupported_operation", `Unsupported request operation: ${message.op}`, message.requestId);
     }
+  }
+
+  private async handleObjectsList(session: ClientSession, message: RequestMessage): Promise<void> {
+    const objects = await this.options.objectService.getObjects();
+    const payload = message.payload ?? {};
+    const prefix = typeof payload.prefix === "string" ? payload.prefix : undefined;
+    const type = typeof payload.type === "string" ? payload.type : undefined;
+    const limit = typeof payload.limit === "number" && Number.isInteger(payload.limit) && payload.limit > 0 ? payload.limit : 1000;
+
+    const matching = objects
+      .filter((object) => !prefix || object._id.startsWith(prefix))
+      .filter((object) => !type || object.type === type)
+      .sort((first, second) => first._id.localeCompare(second._id));
+    const filtered = matching.slice(0, limit);
+
+    this.sendBridgeResponse(session, message, {
+      count: filtered.length,
+      total: matching.length,
+      truncated: filtered.length < matching.length,
+      objects: filtered
+    });
+  }
+
+  private async handleObjectsGet(session: ClientSession, message: RequestMessage): Promise<void> {
+    const id = this.getPayloadString(message, "id");
+
+    if (!id) {
+      this.sendError(session, "invalid_object_id", "Object id is required", message.requestId);
+      return;
+    }
+
+    const object = await this.options.objectService.getObject(id);
+    this.sendBridgeResponse(session, message, { object });
+  }
+
+  private async handleStatesGet(session: ClientSession, message: RequestMessage): Promise<void> {
+    const ids = this.getPayloadIds(message);
+
+    if (ids.length === 0) {
+      this.sendError(session, "invalid_state_id", "At least one state id is required", message.requestId);
+      return;
+    }
+
+    const states = await this.options.stateService.getValues(ids);
+    this.sendBridgeResponse(session, message, { states });
+  }
+
+  private async handleAliasesInspect(session: ClientSession, message: RequestMessage): Promise<void> {
+    const objects = await this.options.objectService.getObjects();
+    const payload = message.payload ?? {};
+    const prefix = typeof payload.prefix === "string" ? payload.prefix : "alias.";
+    const aliases = objects
+      .filter((object) => object.type === "state" && object._id.startsWith(prefix))
+      .sort((first, second) => first._id.localeCompare(second._id))
+      .map((object) => this.toAliasInspection(object));
+
+    this.sendBridgeResponse(session, message, {
+      count: aliases.length,
+      aliases
+    });
+  }
+
+  private async handleRoomsList(session: ClientSession, message: RequestMessage): Promise<void> {
+    const discovery = await this.options.discoveryService.discover();
+    this.sendBridgeResponse(session, message, {
+      count: discovery.rooms.length,
+      rooms: discovery.rooms
+    });
+  }
+
+  private async handleInstancesList(session: ClientSession, message: RequestMessage): Promise<void> {
+    const objects = await this.options.objectService.getObjects({ includeSystem: true, pattern: "system.adapter.*" });
+    const instances = objects
+      .filter((object) => object._id.startsWith("system.adapter.") && object.type === "instance")
+      .sort((first, second) => first._id.localeCompare(second._id));
+    const statusIds = instances.flatMap((instance) => [
+      `${instance._id}.alive`,
+      `${instance._id}.connected`,
+      `${instance._id}.memRss`,
+      `${instance._id}.uptime`
+    ]);
+    const states = await this.options.stateService.getValues(statusIds);
+
+    this.sendBridgeResponse(session, message, {
+      count: instances.length,
+      instances: instances.map((instance) => ({
+        id: instance._id,
+        name: instance.common?.name,
+        native: instance.native,
+        status: this.pickStates(states, [
+          `${instance._id}.alive`,
+          `${instance._id}.connected`,
+          `${instance._id}.memRss`,
+          `${instance._id}.uptime`
+        ])
+      }))
+    });
+  }
+
+  private async handleAdapterStatus(session: ClientSession, message: RequestMessage): Promise<void> {
+    const adapterId = this.getPayloadString(message, "id");
+
+    if (!adapterId) {
+      this.sendError(session, "invalid_adapter_id", "Adapter id is required, e.g. denon.0", message.requestId);
+      return;
+    }
+
+    const instanceId = adapterId.startsWith("system.adapter.") ? adapterId : `system.adapter.${adapterId}`;
+    const object = await this.options.objectService.getObject(instanceId);
+    const statusIds = [
+      `${instanceId}.alive`,
+      `${instanceId}.connected`,
+      `${instanceId}.memRss`,
+      `${instanceId}.uptime`,
+      `${instanceId}.cpu`,
+      `${instanceId}.cputime`
+    ];
+    const states = await this.options.stateService.getValues(statusIds);
+
+    this.sendBridgeResponse(session, message, {
+      id: instanceId,
+      object,
+      status: this.pickStates(states, statusIds)
+    });
   }
 
   private collectStateIds(nodes: Array<{ id: string; type: string; children: unknown[] }>): string[] {
@@ -211,6 +374,73 @@ export class MessageRouter {
         this.applyStateValues(node.children as Array<Record<string, unknown>>, states);
       }
     }
+  }
+
+  private sendBridgeResponse(session: ClientSession, message: RequestMessage, payload: Record<string, unknown>): void {
+    session.send({
+      type: "response",
+      op: message.op,
+      requestId: message.requestId,
+      success: true,
+      ok: true,
+      payload,
+      data: payload
+    });
+  }
+
+  private getPayloadString(message: RequestMessage, key: string): string | undefined {
+    const value = message.payload?.[key];
+
+    return typeof value === "string" && value.length > 0 ? value : undefined;
+  }
+
+  private getPayloadIds(message: RequestMessage): string[] {
+    const payload = message.payload ?? {};
+    const ids = [
+      ...(typeof payload.id === "string" ? [payload.id] : []),
+      ...(typeof payload.stateId === "string" ? [payload.stateId] : []),
+      ...(Array.isArray(payload.ids) ? payload.ids : []),
+      ...(Array.isArray(payload.stateIds) ? payload.stateIds : [])
+    ];
+
+    return ids.filter((id): id is string => typeof id === "string" && id.length > 0);
+  }
+
+  private pickStates(
+    states: Record<string, { val: unknown; ack: boolean; ts: number } | null>,
+    ids: string[]
+  ): Record<string, unknown> {
+    return Object.fromEntries(ids.map((id) => [id.split(".").at(-1) ?? id, states[id]?.val ?? null]));
+  }
+
+  private toAliasInspection(object: IoBrokerObject): Record<string, unknown> {
+    const parts = object._id.split(".");
+    const target = object.common?.alias?.id;
+    const readTarget = typeof target === "string" ? target : target?.read ?? object.common?.alias?.read;
+    const writeTarget = typeof target === "string" ? target : target?.write ?? object.common?.alias?.write;
+
+    return {
+      id: object._id,
+      roomId: parts.length >= 3 ? parts.slice(0, 3).join(".") : undefined,
+      room: parts[2],
+      deviceId: parts.length >= 5 ? parts.slice(0, -1).join(".") : undefined,
+      device: parts.length >= 5 ? parts.slice(3, -1).join(".") : undefined,
+      state: parts.at(-1),
+      name: object.common?.name,
+      role: object.common?.role,
+      type: object.common?.type,
+      read: object.common?.read,
+      write: object.common?.write,
+      unit: object.common?.unit,
+      min: object.common?.min,
+      max: object.common?.max,
+      states: object.common?.states,
+      readTarget,
+      writeTarget,
+      hasReadTarget: typeof readTarget === "string" && readTarget.length > 0,
+      hasWriteTarget: typeof writeTarget === "string" && writeTarget.length > 0,
+      native: object.native
+    };
   }
 
   private async handleDiscover(session: ClientSession, message: ProtocolMessage): Promise<void> {

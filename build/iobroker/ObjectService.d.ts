@@ -48,7 +48,10 @@ export interface ObjectReaderAdapter {
 export declare class ObjectService {
     private readonly adapter;
     constructor(adapter: ObjectReaderAdapter);
-    getObjects(): Promise<IoBrokerObject[]>;
+    getObjects(options?: {
+        includeSystem?: boolean;
+        pattern?: string;
+    }): Promise<IoBrokerObject[]>;
     getObject(id: string): Promise<IoBrokerObject | null>;
     getStateObjects(): Promise<IoBrokerObject[]>;
     getObjectTree(): Promise<IoBrokerObjectTreeNode[]>;

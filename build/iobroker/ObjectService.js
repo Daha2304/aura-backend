@@ -6,9 +6,9 @@ class ObjectService {
     constructor(adapter) {
         this.adapter = adapter;
     }
-    async getObjects() {
-        const objects = await this.adapter.getForeignObjectsAsync("*");
-        return Object.values(objects).filter((object) => !object._id.startsWith("system."));
+    async getObjects(options = {}) {
+        const objects = await this.adapter.getForeignObjectsAsync(options.pattern ?? "*");
+        return Object.values(objects).filter((object) => options.includeSystem === true || !object._id.startsWith("system."));
     }
     async getObject(id) {
         const object = await this.adapter.getForeignObjectAsync(id);
