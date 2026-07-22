@@ -42,6 +42,10 @@ function createRouter(overrides: Partial<ConstructorParameters<typeof MessageRou
                 type: "boolean",
                 readable: true,
                 writable: true,
+                states: {
+                  false: "Aus",
+                  true: "Ein"
+                },
                 value: true
               }
             ]
@@ -130,7 +134,17 @@ describe("MessageRouter", () => {
               {
                 id: "test.0.light.POWER",
                 role: "switch",
-                value: true
+                value: true,
+                states: {
+                  false: "Aus",
+                  true: "Ein"
+                },
+                common: {
+                  states: {
+                    false: "Aus",
+                    true: "Ein"
+                  }
+                }
               }
             ]
           }

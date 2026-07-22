@@ -627,6 +627,7 @@ export class MessageRouter {
       unit: state.unit,
       min: state.min,
       max: state.max,
+      states: state.states,
       writable: state.writable,
       common: {
         name: state.name,
@@ -636,7 +637,8 @@ export class MessageRouter {
         write: state.writable,
         unit: state.unit,
         min: state.min,
-        max: state.max
+        max: state.max,
+        states: state.states
       }
     };
   }
